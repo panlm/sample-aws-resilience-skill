@@ -51,6 +51,60 @@ This skill enables you to systematically validate system resilience through cont
 
 > No MCP? The skill falls back to AWS CLI (`aws fis`, `aws cloudwatch`, `kubectl`).
 
+### Chaos Mesh MCP: EKS Authentication Methods
+
+When using the optional Chaos Mesh MCP server, there are two ways to authenticate with your EKS cluster:
+
+#### Method 1: Static ServiceAccount Token (Recommended)
+
+Run the setup script once to create RBAC permissions and generate a self-contained kubeconfig with a long-lived ServiceAccount token. **No AWS CLI or IAM credentials required at runtime.**
+
+```bash
+# One-time setup: create RBAC + generate kubeconfig (expires in 1 year)
+cd /path/to/Chaosmesh-MCP
+./setup-eks-permissions.sh
+
+# Start Chaos Mesh MCP server with the generated kubeconfig
+python server.py --kubeconfig ./chaos-mesh-mcp-kubeconfig
+```
+
+MCP config:
+```json
+{
+  "mcpServers": {
+    "chaosmesh-mcp": {
+      "command": "python",
+      "args": ["/path/to/Chaosmesh-MCP/server.py", "--kubeconfig", "/path/to/chaos-mesh-mcp-kubeconfig"]
+    }
+  }
+}
+```
+
+✅ Portable — no AWS dependency at runtime  
+✅ Least-privilege permissions (Chaos Mesh only)  
+⚠️ Token expires after 1 year — re-run the script to renew
+
+#### Method 2: Admin kubeconfig (exec-based Auth)
+
+If a cluster admin provides a kubeconfig (typically from `aws eks update-kubeconfig`), the server can use it directly. It calls `aws eks get-token` on each request to obtain a temporary token.
+
+```bash
+# Start with an admin-provided kubeconfig
+python server.py --kubeconfig /path/to/admin-kubeconfig
+
+# Or via environment variable
+export KUBECONFIG=/path/to/admin-kubeconfig
+python server.py
+```
+
+**Requirements:** `aws` CLI installed + valid AWS credentials (IAM role / `~/.aws/credentials`) + IAM identity mapped in the EKS `aws-auth` ConfigMap.
+
+✅ No extra setup — reuse existing admin credentials  
+⚠️ Depends on AWS CLI + IAM at runtime  
+⚠️ Admin-level permissions (broader than necessary)
+
+> **Recommendation:** Use Method 1 for production. Use Method 2 for quick testing when an admin kubeconfig is already available.
+
 Full setup guide: [MCP_SETUP_GUIDE.md](MCP_SETUP_GUIDE.md)
 
 ## Six-Step Workflow

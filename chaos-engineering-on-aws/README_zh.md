@@ -51,6 +51,60 @@ AI 驱动的混沌工程 Agent Skill，在 AWS 上运行受控混沌实验，覆
 
 > 无 MCP 时自动降级为 AWS CLI（`aws fis`、`aws cloudwatch`、`kubectl`）直接调用。
 
+### Chaos Mesh MCP：EKS 认证方式
+
+使用可选的 Chaos Mesh MCP Server 时，有以下两种方式认证 EKS 集群：
+
+#### 方式一：静态 ServiceAccount Token（推荐）
+
+一次性运行 setup 脚本，创建 RBAC 权限并生成包含长期 ServiceAccount Token 的独立 kubeconfig。**运行时不依赖 AWS CLI 或 IAM 凭证。**
+
+```bash
+# 一次性执行：创建 RBAC + 生成 kubeconfig（有效期 1 年）
+cd /path/to/Chaosmesh-MCP
+./setup-eks-permissions.sh
+
+# 用生成的 kubeconfig 启动 Chaos Mesh MCP Server
+python server.py --kubeconfig ./chaos-mesh-mcp-kubeconfig
+```
+
+MCP 配置：
+```json
+{
+  "mcpServers": {
+    "chaosmesh-mcp": {
+      "command": "python",
+      "args": ["/path/to/Chaosmesh-MCP/server.py", "--kubeconfig", "/path/to/chaos-mesh-mcp-kubeconfig"]
+    }
+  }
+}
+```
+
+✅ 可移植，运行时无 AWS 依赖  
+✅ 最小权限（仅 Chaos Mesh 相关）  
+⚠️ Token 1 年后过期，到期需重新执行脚本生成
+
+#### 方式二：管理员 kubeconfig（exec 认证）
+
+如果集群管理员直接提供 kubeconfig 文件（通常由 `aws eks update-kubeconfig` 生成），MCP Server 可以直接使用，每次请求时通过 `aws eks get-token` 获取临时 Token。
+
+```bash
+# 用管理员提供的 kubeconfig 启动
+python server.py --kubeconfig /path/to/admin-kubeconfig
+
+# 或通过环境变量设置
+export KUBECONFIG=/path/to/admin-kubeconfig
+python server.py
+```
+
+**前提条件：** 机器需安装 `aws` CLI + 有效 AWS 凭证（IAM Role / `~/.aws/credentials`）+ 该 IAM 身份已在 EKS `aws-auth` ConfigMap 中映射。
+
+✅ 无需额外配置，复用已有管理员凭证  
+⚠️ 运行时依赖 AWS CLI + IAM 凭证  
+⚠️ 权限为 admin 级别（范围过大）
+
+> **建议：** 生产环境使用方式一。测试时如管理员可直接提供 kubeconfig，使用方式二更快捷。
+
 完整配置指南：[MCP_SETUP_GUIDE.md](MCP_SETUP_GUIDE.md)
 
 ## 六步流程
