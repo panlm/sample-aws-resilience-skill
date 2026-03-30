@@ -17,8 +17,17 @@
 # RMA Resilience Assessment Report
 ## {Application Name}
 
-**Assessment Date**: {date}
-**Assessment Version**: Compact / Full
+## Assessment Metadata
+
+| Field | Value |
+|-------|-------|
+| **Evaluator** | {evaluator name/role} |
+| **Assessment Date** | {YYYY-MM-DD} |
+| **Scope** | {application name, AWS account(s), region(s)} |
+| **Methodology Version** | RMA Assessment v2.0 |
+| **Assessment Type** | {Compact (36 Qs) / Full (80 Qs)} |
+| **Confidentiality** | {as specified by user} |
+
 **Overall Maturity**: {score}% - {rating}
 
 ---
@@ -92,6 +101,17 @@ graph TD
 - 🔴 Gaps >= 3 questions (Critical)
 - 🟡 Gaps 1-2 questions (Moderate)
 - 🟢 Gaps 0 questions (Good)
+
+### P0 Critical Risk Summary
+
+**P0 Average Score**: {P0 score}% — {P0 rating}
+
+> **⚠ Critical Risk Warning** (shown if any P0 question is Level 1)
+> The following critical questions scored Level 1, indicating immediate action is required:
+
+| Domain | Question | Current Level | Recommended Action |
+|--------|----------|---------------|-------------------|
+| {domain} | {question summary} | Level 1 | {recommended action} |
 
 ### Top 5 Key Findings
 
@@ -176,6 +196,30 @@ Based on gap analysis, the following AWS services are recommended:
 
 ---
 
+## Next Steps
+
+For domains scoring Level 1, the following deep-dive analyses are recommended using `aws-resilience-modeling`:
+
+| Domain at Level 1 | Recommended Modeling Task | Focus Area |
+|-------------------|--------------------------|------------|
+| Disaster Recovery | Task 2 (Failure Modes) + Task 4 (Business Impact) | DR strategy validation and business impact analysis |
+| High Availability | Task 1 (Component Mapping) + Task 2 (Failure Modes) | Architecture dependency and fault tolerance analysis |
+| Observability | Task 1 (Component Mapping) + Task 3 (Resilience Assessment) | Monitoring gap identification and scoring |
+
+This assessment should be paired with `aws-resilience-modeling` for a complete risk mitigation lifecycle.
+
+## Scoring Alignment Reference
+
+| RMA Level | Approximate Modeling Stars | Description |
+|-----------|--------------------------|-------------|
+| Level 1 (Ad-hoc) | 1-2 stars | Informal/no process |
+| Level 2 (Defined) | 2.5-3.5 stars | Basic processes exist |
+| Level 3 (Managed) | 4-5 stars | Mature, automated, continuously improved |
+
+*Note: This is an approximate mapping. The two assessments evaluate different dimensions and granularity.*
+
+---
+
 ## Reference Resources
 
 - [AWS Well-Architected Framework - Reliability Pillar](https://docs.aws.amazon.com/wellarchitected/latest/reliability-pillar/)
@@ -185,7 +229,7 @@ Based on gap analysis, the following AWS services are recommended:
 ---
 
 **Report generated**: {datetime}
-**Assessment tool**: RMA Assessment Assistant v1.0
+**Assessment tool**: RMA Assessment Assistant v2.0
 ```
 
 ---

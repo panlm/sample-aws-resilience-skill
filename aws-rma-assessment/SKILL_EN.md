@@ -142,11 +142,16 @@ If the user provides architecture docs or IaC code, immediately perform auto-ana
 
 Based on collected information and answered questions, automatically infer related question answers:
 
-1. **If RTO < 1 hour** -> Q27 (DR strategy) >= Level 2, Q36 (fault isolation) >= Level 2, Q40 (deployment method) >= Level 2
-2. **If deployment regions > 1** -> Q27 (DR strategy) >= Level 3, Q36 (fault isolation) = Level 3
-3. **If CloudWatch Alarm config found** -> Q13 (metrics established) >= Level 2, Q19 (availability monitoring) >= Level 2, Q23 (alert strategy) >= Level 2
-4. **If CodePipeline/CodeDeploy found** -> Q40 (deployment method) >= Level 2, Q43 (automation integration) >= Level 2
+1. **If RTO < 1 hour** -> Q27 (DR strategy) >= Level 2 [Source: user-stated target, confidence: medium — verify with "Has this RTO been validated through DR testing?"], Q36 (fault isolation) >= Level 2, Q40 (deployment method) >= Level 2
+2. **If deployment regions > 1** -> Q27 (DR strategy) >= Level 2 [Source: infrastructure config, confidence: high — but multi-region deployment alone does not imply mature DR; Level 3 requires verified automated failover + quarterly testing], Q36 (fault isolation) >= Level 2
+3. **If CloudWatch Alarm config found** -> Q13 (metrics established) >= Level 2 [Source: IaC/config verified, confidence: high], Q19 (availability monitoring) >= Level 2, Q23 (alert strategy) >= Level 2
+4. **If CodePipeline/CodeDeploy found** -> Q40 (deployment method) >= Level 2 [Source: IaC/config verified, confidence: high], Q43 (automation integration) >= Level 2
 5. **If business criticality = "High"** -> Q3 (criticality) = Level 3, Q2 (SLO) suggest >= 99.99%
+
+**Inference Confidence Classification**:
+- **Evidence-based** (high confidence): Directly extracted from IaC code, AWS config, or API output. Can be auto-answered without confirmation.
+- **Goal-stated** (medium confidence): Based on user-declared targets (e.g., "our RTO is 1 hour"). Must ask: "Has this target been validated through testing?"
+- **Inferred** (low confidence): Derived from other answers or assumptions. Must be presented to user for explicit confirmation.
 
 #### 3.3 Auto-Answer Output Format
 
@@ -167,7 +172,7 @@ Each auto-answer must include **confidence level** and **analysis basis**, allow
 Grouping principle: Aggregate related questions by topic domain (recovery objectives, disaster recovery, high availability, change management, incident management, observability, etc.); within each group, P0 questions precede P1/P2 questions.
 
 See [question-groups.md](references/question-groups.md) for detailed grouping strategies, question lists, and question format templates.
-See [questions-data.json](references/questions-data.json) for complete question data.
+Load questions by group: first Read [questions-index.json](references/questions-index.json) for overview, then Read specific group files ([questions-group-{N}.json](references/)) as needed during the assessment. NEVER Read the full questions-data.json.
 See [questions-priority.md](references/questions-priority.md) for question priorities.
 
 ### Step 5: Scoring and Analysis
@@ -187,25 +192,50 @@ After collecting all answers, perform automated scoring:
    - Calculate averages for each of the 10 topic domains
    - Identify the 3 lowest-scoring domains as priority improvement areas
 
-3. **Critical Risk Identification**
+3. **P0 Critical Risk Summary** (must appear in Executive Summary)
+   - Calculate P0 questions average score separately: (sum of P0 scores / P0 count / 3) x 100
+   - If any P0 question is scored Level 1, add a **"Critical Risk Warning"** banner in the Executive Summary
+   - List all P0 questions at Level 1 in a dedicated table with domain, question, current level, and recommended action
+   - This ensures critical risks are never masked by high scores in lower-priority areas
+
+4. **Critical Risk Identification**
    - All P0 questions scored at Level 1 -> High Risk
    - All P1 questions scored at Level 1 -> Medium Risk
    - Sorted by business impact
 
-4. **Strength Area Identification**
+5. **Strength Area Identification**
    - All questions scored at Level 3
    - Can be shared as organizational best practices
 
 ### Step 6: Generate Assessment Report
 
-Use the Write tool to generate a Markdown assessment report. The report should include:
+Use the Write tool to generate a Markdown assessment report. The report MUST begin with the following **Assessment Metadata** header:
 
-1. **Executive Summary** — Overall score, maturity radar chart (table form), gap heatmap, top 5 key findings, strength areas
+| Field | Value |
+|-------|-------|
+| **Evaluator** | {evaluator name/role} |
+| **Assessment Date** | {YYYY-MM-DD} |
+| **Scope** | {application name, AWS account(s), region(s)} |
+| **Methodology Version** | RMA Assessment v2.0 |
+| **Assessment Type** | {Compact (36 Qs) / Full (80 Qs)} |
+| **Confidentiality** | {as specified by user} |
+
+Then include the following sections:
+
+1. **Executive Summary** — Overall score, P0 Critical Risk Summary (with warning banner if any P0 at Level 1), maturity radar chart (table form), gap heatmap, top 5 key findings, strength areas
 2. **Domain Assessment Details** — Scores, question-level comparisons, analysis, and recommendations for each domain
 3. **Improvement Roadmap** — Three phases: Critical Risk Mitigation (P0), Important Improvements (P1), Maturity Uplift (P2+P3); each phase includes AWS service recommendations and cost estimates
 4. **AWS Service Recommendations** — Specific services recommended based on gap analysis
 5. **Detailed Q&A Records** — All question responses, levels, assessment basis, and improvement suggestions
-6. **Reference Resources** — AWS documentation links
+6. **Next Steps** — Cross-skill recommendations:
+   - For domains scoring Level 1, recommend deep architecture analysis using `aws-resilience-modeling` (specific mapping: DR Level 1 -> Modeling Task 2 + Task 4, HA Level 1 -> Modeling Task 1 + Task 2, Observability Level 1 -> Modeling Task 1 + Task 3)
+   - This assessment should be paired with `aws-resilience-modeling` for a complete risk mitigation lifecycle
+7. **Scoring Alignment Reference** — Cross-skill scoring comparison:
+   - RMA Level 1 (Ad-hoc) approximately equals Modeling 1-2 stars
+   - RMA Level 2 (Defined) approximately equals Modeling 2.5-3.5 stars
+   - RMA Level 3 (Managed) approximately equals Modeling 4-5 stars
+   - Note: This is an approximate mapping, not an exact equivalence, as the two assessments evaluate different dimensions
+8. **Reference Resources** — AWS documentation links
 
 See [report-template.md](references/report-template.md) for detailed report template structure and HTML generation methods.
 
@@ -233,20 +263,27 @@ See [report-template.md](references/report-template.md) for conversion commands 
 - Medium risk, partially predictable
 
 **Level 3 - Managed/Optimized**
-- Fully documented and automated
-- Regularly tested and validated
-- Continuous improvement mechanisms
+- Fully documented and automated processes
+- Regularly tested and validated through drills and reviews
+- Continuous improvement mechanisms with measurable outcomes
 - Low risk, high predictability
 - Aligned with AWS best practices
+- Note: Level 3 is assessed by **process maturity** (documented, automated, tested, continuously improved), NOT by specific numeric thresholds (e.g., a specific RTO value). Numeric targets vary by business context.
 
 ### Domain-Specific Scoring Guide
 
 | Domain | Level 1 | Level 2 | Level 3 |
 |--------|---------|---------|---------|
 | **Recovery Objectives** | Not defined or documented | Defined but not regularly validated | Defined, tested, and continuously monitored |
-| **Disaster Recovery** | No DR plan or untested | DR plan exists, low test frequency (annual) | Automated DR, regularly tested (quarterly or monthly) |
+| **Disaster Recovery** | No DR plan or untested | DR plan exists, tested periodically | Automated DR with verified failover, regularly tested (quarterly+) |
 | **Monitoring & Observability** | Basic monitoring, no unified logs | Centralized logs, basic metrics and alerts | Complete observability (logs, metrics, traces), proactive alerts |
+| **High Availability** | Single-AZ, no redundancy | Multi-AZ deployment, basic health checks | Multi-AZ with auto failover, fault isolation boundaries verified |
 | **Change Management** | Manual deployment, no rollback strategy | Partial automation, basic rollback | Fully automated CI/CD, blue-green/canary deployment |
+| **Incident Management** | No incident process, ad-hoc response | Documented runbooks, basic escalation | Automated incident detection, structured response, blameless postmortems |
+| **Operations Reviews** | No regular reviews | Periodic reviews (quarterly), basic metrics | Regular reviews with action tracking, data-driven decision making |
+| **Chaos Engineering & Game Days** | No fault injection or drills | Occasional drills in non-production | Regular chaos experiments in production, automated steady-state verification |
+| **Organizational Learning** | No resilience culture or training | Basic training, informal knowledge sharing | Resilience community of practice, continuous training, knowledge base |
+| **Resilience Analysis** | No dependency docs or failure modeling | Basic dependency mapping, some failure scenarios | Comprehensive dependency docs, failure scenario modeling, capacity planning |
 
 ---
 

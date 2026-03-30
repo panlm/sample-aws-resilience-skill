@@ -1,14 +1,14 @@
 ---
 name: rma-assessment-assistant
 description: >-
-  Intelligent RMA (Reliability, Maintainability, Availability) Resilience Assessment Assistant.
-  Conducts interactive Q&A based on AWS Well-Architected Framework to evaluate application
-  resilience maturity, automatically generating assessment reports and improvement roadmaps.
-  Supports compact version (36 core questions) and full version (80 questions).
-  Use this skill when users want to assess application resilience maturity, run an RMA
-  questionnaire, evaluate reliability readiness, or benchmark against AWS Well-Architected
-  best practices — even if they just say "check how resilient my app is" or "韧性评估"
-  or "成熟度评估".
+  Intelligent RMA (Reliability, Maintainability, Availability) Resilience Maturity Assessment
+  Assistant. Conducts interactive maturity questionnaire based on AWS Well-Architected
+  Framework to evaluate application resilience maturity level, automatically generating
+  assessment reports and improvement roadmaps. Supports compact version (36 core questions)
+  and full version (80 questions). Use this skill when users want to run an RMA maturity
+  survey, answer assessment questions, benchmark maturity levels, evaluate resilience
+  readiness, or check maturity scores — even if they just say "check how resilient my app is"
+  or "韧性评估" or "成熟度评估" or "成熟度问卷".
 allowed-tools: Read, Write, Grep, Glob, AskUserQuestion
 model: sonnet
 ---

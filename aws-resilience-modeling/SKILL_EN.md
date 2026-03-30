@@ -104,11 +104,18 @@ Before starting the analysis, ask the user the following key information:
 3. **Data Flow Diagram** (request paths, data flows, integration points)
 4. **Network Topology Diagram** (VPC, subnets, security groups, route tables, NAT gateways, VPN/Direct Connect)
 
+**Multi-Account Considerations** (if the architecture spans multiple AWS accounts):
+- AWS Organizations SCP (Service Control Policy) impact on resilience
+- Cross-account resource sharing and DR strategy (e.g., shared VPC, cross-account backup vaults)
+- Centralized vs. decentralized backup and monitoring strategy
+- Cross-account IAM trust relationships and failover permissions
+
 ### Task 2: Failure Mode Identification and Classification (Based on AWS Resilience Analysis Framework)
 
 **Reference Resources**:
 - AWS Prescriptive Guidance - Resilience Analysis Framework
 - See [resilience-framework.md](references/resilience-framework.md) for details
+- **Important**: Reference resilience-framework.md as needed using Grep to search for specific failure mode categories. Do NOT Read the entire 52KB file at once.
 
 **Identify the following failure mode categories**:
 
@@ -132,15 +139,15 @@ Rate each critical component (1 star = inadequate, 5 stars = excellent):
 
 | Dimension | Assessment Question | Rating Criteria |
 |-----------|-------------------|-----------------|
-| **Redundancy Design** | Does the component have sufficient redundancy? | 1 star: Single point -> 5 stars: Multi-region active-active |
-| **AZ Fault Tolerance** | Can it withstand a single AZ failure? | 1 star: Single AZ -> 5 stars: Multi-AZ automatic failover |
-| **Timeout & Retry** | Are there appropriate timeout and retry strategies? | 1 star: Not configured -> 5 stars: Exponential backoff + circuit breaker |
-| **Circuit Breaker** | Is there a mechanism to prevent cascading failures? | 1 star: None -> 5 stars: Full circuit breaker + graceful degradation |
-| **Auto Scaling** | Can it handle load increases? | 1 star: Fixed capacity -> 5 stars: Multi-dimensional Auto Scaling |
-| **Configuration Safeguards** | Are there measures to prevent misconfiguration? | 1 star: Manual -> 5 stars: IaC + automated validation |
-| **Fault Isolation** | Are fault isolation boundaries clearly defined? | 1 star: Monolith -> 5 stars: Cell architecture + bulkhead pattern |
-| **Backup & Recovery** | Is there a data backup and recovery mechanism? | 1 star: No backup -> 5 stars: Cross-region + automated testing |
-| **Best Practices** | Does it comply with Well-Architected? | 1 star: Multiple violations -> 5 stars: Fully compliant |
+| **Redundancy Design** | Does the component have sufficient redundancy? | 1: Single point / 2: Same-AZ redundancy / 3: Multi-AZ manual failover / 4: Multi-AZ auto failover + cross-region backup / 5: Multi-region active-active |
+| **AZ Fault Tolerance** | Can it withstand a single AZ failure? | 1: Single AZ / 2: Multi-AZ without auto failover / 3: Multi-AZ with auto failover / 4: Multi-AZ + periodic DR drills / 5: Multi-AZ + multi-region failover tested |
+| **Timeout & Retry** | Are there appropriate timeout and retry strategies? | 1: Not configured / 2: Basic fixed timeouts / 3: Configurable timeouts + simple retry / 4: Exponential backoff + jitter / 5: Exponential backoff + circuit breaker + bulkhead |
+| **Circuit Breaker** | Is there a mechanism to prevent cascading failures? | 1: None / 2: Basic health checks / 3: Circuit breaker on critical paths / 4: Circuit breaker + graceful degradation / 5: Full circuit breaker + degradation + load shedding |
+| **Auto Scaling** | Can it handle load increases? | 1: Fixed capacity / 2: Manual scaling / 3: Target tracking Auto Scaling / 4: Predictive + reactive Auto Scaling / 5: Multi-dimensional Auto Scaling + capacity reservations |
+| **Configuration Safeguards** | Are there measures to prevent misconfiguration? | 1: Manual / 2: Documented procedures / 3: IaC templates / 4: IaC + automated validation + drift detection / 5: IaC + policy-as-code + automated rollback |
+| **Fault Isolation** | Are fault isolation boundaries clearly defined? | 1: Monolith / 2: Basic service separation / 3: Service-level isolation / 4: Cell-based architecture / 5: Cell architecture + bulkhead + shuffle sharding |
+| **Backup & Recovery** | Is there a data backup and recovery mechanism? | 1: No backup / 2: Manual backups / 3: Automated backups + tested restore / 4: Cross-region backup + periodic DR testing / 5: Cross-region + automated recovery testing + PITR |
+| **Best Practices** | Does it comply with Well-Architected? | 1: Multiple violations / 2: Partial compliance / 3: Mostly compliant + known gaps / 4: Fully compliant + optimization in progress / 5: Fully compliant + continuous improvement |
 
 ### Task 4: Business Impact Analysis
 
@@ -156,6 +163,15 @@ Rate each critical component (1 star = inadequate, 5 stars = excellent):
 |---------|-------------|-------------------|--------------|---------------------------|-----------------------------|-----------|---------|
 | R-001 | RDS Single AZ | 3 | 5 | 2 | 2 | 15 | High |
 | R-002 | Missing Auto Scaling | 4 | 4 | 1 | 3 | 5.3 | Medium |
+
+**Risk Score Severity Thresholds**:
+
+| Severity | Score Range | Action Required |
+|----------|-----------|-----------------|
+| **Critical** | >= 20 | Immediate remediation required |
+| **High** | 10 - 19 | Remediation within current sprint |
+| **Medium** | 4 - 9 | Plan remediation in next quarter |
+| **Low** | < 4 | Monitor and address as capacity allows |
 
 Also perform **Cascading Effect Analysis**: Identify correlations between risks, assess multi-point failure scenarios, worst-case impact analysis.
 
@@ -196,7 +212,18 @@ Each phase should include **detailed task cards** (task ID, effort, dependencies
 
 ## Output Format
 
-Generate a structured resilience assessment report containing the following sections:
+Generate a structured resilience assessment report. The report MUST begin with the following **Assessment Metadata** header:
+
+| Field | Value |
+|-------|-------|
+| **Evaluator** | {evaluator name/role} |
+| **Assessment Date** | {YYYY-MM-DD} |
+| **Scope** | {application name, AWS account(s), region(s)} |
+| **Methodology Version** | AWS Resilience Modeling v2.0 |
+| **Report Type** | {Executive Summary / Technical Deep Dive / Full Report} |
+| **Confidentiality** | {as specified by user} |
+
+Then include the following sections:
 
 1. **Executive Summary** (within 2 pages) -- Key findings (Top 5 risks), maturity score, priority recommendations, expected ROI
 2. **System Architecture Visualization** -- Architecture overview, dependency diagram, data flow diagram, network topology diagram
@@ -244,6 +271,16 @@ Pay special attention to the following during analysis:
 - Provide multiple option choices (low-cost vs. high-resilience)
 - Consider TCO (Total Cost of Ownership), not just initial investment
 
+**Cost Reference Baselines** (approximate multipliers, actual costs vary significantly by service and usage pattern):
+
+| DR Strategy | Cost Multiplier vs. Single-Region | Typical Use Case |
+|-------------|----------------------------------|-----------------|
+| Backup & Restore | ~1.1x | Non-critical workloads, RTO > 24h |
+| Pilot Light | ~1.1-1.2x | Important workloads, RTO 1-4h |
+| Warm Standby | ~1.3-1.5x | Business-critical, RTO 15min-1h |
+| Multi-AZ (same region) | ~1.5-2x | Production standard |
+| Multi-Region Active-Active | ~2.5-3x | Mission-critical, RTO < 5min |
+
 ### 3. Security-Resilience Balance
 - Security controls should not undermine resilience (e.g., overly strict change controls)
 - Resilience measures should not introduce security vulnerabilities (e.g., overly permissive IAM policies)
@@ -253,6 +290,16 @@ Pay special attention to the following during analysis:
 - Certain compliance requirements may limit architecture options (e.g., data residency)
 - Ensure DR strategies meet audit requirements
 - Importance of documentation and audit trails
+
+**Compliance Framework Mapping** (reference guide, not formal certification):
+
+| Compliance Framework | Relevant Control Areas | Mapping to Analysis Tasks |
+|---------------------|----------------------|--------------------------|
+| SOC2 CC7.x (System Operations) | Monitoring, incident response, change management | Task 2 (Failure Modes), Task 5 (Risk Prioritization) |
+| SOC2 CC9.x (Risk Mitigation) | Risk assessment, mitigation strategies | Task 5 (Risk), Task 6 (Mitigation) |
+| ISO 27001 A.17 (Business Continuity) | BC planning, DR implementation, testing | Task 4 (Business Impact), Task 6 (Mitigation) |
+| NIST CSF PR (Protect) | Protective technology, data security | Task 1 (Architecture), Task 3 (Assessment) |
+| NIST CSF DE/RS/RC (Detect/Respond/Recover) | Detection, response, recovery | Task 2, Task 5, Task 6, Task 8 |
 
 ### 5. Actionability
 - All recommendations must be specific and executable
