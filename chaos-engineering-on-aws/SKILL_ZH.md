@@ -174,7 +174,7 @@ AZ/Region 级复合故障 → FIS Scenario Library（预构建复合场景）
   ├── Cross-AZ Traffic Slowdown（跨 AZ 网络退化）
   └── Cross-Region Connectivity（路由表 + TGW 中断）
   → fault-catalog.yaml: fis_scenarios 段（composite: true）
-  → 模板：scenario-library_zh.md（必须通过控制台创建，不能用 API）
+  → 模板：scenario-library_zh.md（场景为控制台体验，通过 Console 创建后导出，或复制 Content tab 内容并通过 API 补全参数）
 
 AWS 托管服务 / 基础设施层 → AWS FIS（单 action）
   ├── 节点级: eks:terminate-nodegroup-instances
@@ -200,7 +200,7 @@ K8s Pod/容器层 → Chaos Mesh（推荐）
 > Chaos Mesh 在 Pod 级操作更轻量、更快（秒级生效）、配置更简单。
 > FIS 应专注其强项：**基础设施层** — 节点终止、AZ 隔离、数据库故障转移、网络中断等。
 
-> ⚠️ **重要**：FIS Scenario Library 模板**不能**通过 FIS API 创建。必须通过 **AWS 控制台 → FIS → Scenario Library** 创建。目标资源必须预先打上场景特定标签（如 `AzImpairmentPower: IceQualified`）。详见 [references/scenario-library_zh.md](references/scenario-library_zh.md) 获取 JSON 骨架和完整要求。
+> ⚠️ **重要**：FIS Scenario Library 场景是**控制台体验**——场景不是完整模板，不能直接通过 API 导入。两种自动化路径：(1) 通过控制台 Scenario Library 创建模板，然后用 `aws fis get-experiment-template` 导出；(2) 从控制台 Content tab 复制场景内容，手动补全缺失参数，通过 `aws fis create-experiment-template` API 创建。目标资源必须预先打上场景特定标签（如 `AzImpairmentPower: IceQualified`）。详见 [references/scenario-library_zh.md](references/scenario-library_zh.md)。
 
 统一故障类型注册表：[references/fault-catalog.yaml](references/fault-catalog.yaml)
 FIS Scenario Library 参考：[references/scenario-library_zh.md](references/scenario-library_zh.md)

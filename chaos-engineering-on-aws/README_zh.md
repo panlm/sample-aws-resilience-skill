@@ -129,7 +129,7 @@ AZ/Region 级复合故障  →  FIS Scenario Library
   ├── AZ 应用延迟（网络延迟注入）
   ├── 跨 AZ 流量劣化（跨 AZ 丢包）
   └── 跨 Region 连通性（TGW + 路由表中断）
-  ⚠️ 模板必须通过控制台创建，不能 API 生成
+  ⚠️ 场景不是完整模板——通过 Console 创建后导出，或从 Content tab 复制并通过 API 补全参数
 
 AWS 托管服务 / 基础设施层  →  AWS FIS（单 action）
   ├── 节点级：   eks:terminate-nodegroup-instances

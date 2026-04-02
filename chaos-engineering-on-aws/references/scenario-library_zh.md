@@ -1,8 +1,8 @@
 # FIS Scenario Library 参考
 
-> ⚠️ **关键**：FIS Scenario Library 模板**不能**通过 FIS API（`aws fis create-experiment-template`）生成。
-> 必须通过 **AWS 控制台 → FIS → Scenario Library** 创建，控制台会预填充多 action 模板结构。
-> 以下 JSON 骨架从 AWS 文档提取，仅供参考 — 用于理解结构，
+> ⚠️ **重要**：FIS Scenario Library 场景是**控制台体验**——场景不是完整的实验模板，不能直接通过 API 导入。
+> 两种自动化路径：(1) 通过控制台 Scenario Library 创建模板，然后用 `aws fis get-experiment-template` 导出；(2) 从控制台 Content tab 复制场景内容，手动补全缺失参数，通过 `aws fis create-experiment-template` API 创建。
+> 以下 JSON 骨架从 AWS 文档提取，供参考 — 用于理解结构，
 > 实际实验请通过控制台的 Scenario Library 工作流创建。
 
 ## 概述

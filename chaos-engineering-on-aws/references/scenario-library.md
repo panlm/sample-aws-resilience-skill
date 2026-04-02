@@ -1,8 +1,8 @@
 # FIS Scenario Library Reference
 
-> ⚠️ **Critical**: FIS Scenario Library templates **cannot** be generated via the FIS API (`aws fis create-experiment-template`).
-> They must be created through the **AWS Console → FIS → Scenario Library**, which pre-populates the multi-action template structure.
-> The JSON skeletons below are extracted from AWS documentation for reference only — use them to understand the structure,
+> ⚠️ **Important**: FIS Scenario Library scenarios are a **console-only experience** — they are not complete experiment templates and cannot be directly imported via API.
+> Two automation paths: (1) Create template via Console Scenario Library, then export with `aws fis get-experiment-template`; (2) Copy scenario content from Console Content tab, manually add missing parameters, and create via `aws fis create-experiment-template` API.
+> The JSON skeletons below are extracted from AWS documentation for reference — use them to understand the structure,
 > then create the actual experiment through the Console's Scenario Library workflow.
 
 ## Overview

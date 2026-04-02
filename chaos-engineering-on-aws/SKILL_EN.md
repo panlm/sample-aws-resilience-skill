@@ -174,7 +174,7 @@ AZ/Region-level compound faults → FIS Scenario Library (pre-built composite sc
   ├── Cross-AZ Traffic Slowdown (inter-AZ network degradation)
   └── Cross-Region Connectivity (route table + TGW disruption)
   → fault-catalog.yaml: fis_scenarios section (composite: true)
-  → Template: scenario-library.md (must create via Console, not API)
+  → Template: scenario-library.md (create via Console then export, or copy Content tab and add missing params via API)
 
 AWS managed services / infrastructure layer → AWS FIS (single action)
   ├── Node-level: eks:terminate-nodegroup-instances
@@ -200,7 +200,7 @@ Beyond coverage → AWS CLI / SSM / custom Lambda
 > Chaos Mesh is more lightweight for Pod-level operations, faster (takes effect in seconds), and simpler to configure.
 > FIS should focus on its strength: **infrastructure layer** — node termination, AZ isolation, database failover, network disruption, etc.
 
-> ⚠️ **Important**: FIS Scenario Library templates **cannot** be created via the FIS API. They must be created through the **AWS Console → FIS → Scenario Library**. Target resources must be pre-tagged with scenario-specific tags (e.g., `AzImpairmentPower: IceQualified`). See [references/scenario-library.md](references/scenario-library.md) for JSON skeletons and full requirements.
+> ⚠️ **Important**: FIS Scenario Library scenarios are a **console-only experience** — they are not complete templates and cannot be directly imported via API. Two automation paths: (1) Create template via Console Scenario Library, then export with `aws fis get-experiment-template`; (2) Copy scenario content from Console Content tab, manually add missing parameters, and create via `aws fis create-experiment-template` API. Target resources must be pre-tagged with scenario-specific tags (e.g., `AzImpairmentPower: IceQualified`). See [references/scenario-library.md](references/scenario-library.md) for details.
 
 Unified fault catalog: [references/fault-catalog.yaml](references/fault-catalog.yaml)
 FIS Scenario Library reference: [references/scenario-library.md](references/scenario-library.md)

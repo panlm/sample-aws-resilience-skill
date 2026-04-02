@@ -464,7 +464,7 @@ fis_scenarios:
       - aws:elasticache:interrupt-cluster-az-power
     required_tags:
       AzImpairmentPower: "IceQualified"
-    template_source: "docs"  # ⚠️ Must create via Console Scenario Library, not API
+    template_source: "docs"  # ⚠️ Console-only experience: create via Console then export, or copy Content tab and add missing params via API
     doc_url: "https://docs.aws.amazon.com/fis/latest/userguide/az-availability-scenario.html"
     prerequisites:
       - "Target resources must be tagged with required tags"

@@ -129,7 +129,7 @@ AZ/Region-level Compound Faults  →  FIS Scenario Library
   ├── AZ Application Slowdown (network latency injection)
   ├── Cross-AZ Traffic Slowdown (inter-AZ packet loss)
   └── Cross-Region Connectivity (TGW + route table disruption)
-  ⚠️ Templates must be created via Console, not API
+  ⚠️ Scenarios are not complete templates — create via Console then export, or copy Content tab and add missing params via API
 
 AWS Managed Services / Infrastructure  →  AWS FIS (single action)
   ├── Node level:    eks:terminate-nodegroup-instances
