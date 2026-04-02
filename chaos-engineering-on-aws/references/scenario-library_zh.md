@@ -473,7 +473,9 @@ aws fis create-experiment-template --cli-input-json file://cross-region-connecti
 aws fis start-experiment --experiment-template-id <TEMPLATE_ID>
 ```
 
-### 前置条件（VPC Peering、TGW 或 Direct Connect 跨区域）
+### 前置条件
+
+- 多区域架构已部署（VPC Peering、TGW 或 Direct Connect 跨区域）
 - FIS IAM Role 拥有权限：`ec2:CreateRoute`、`ec2:DeleteRoute`、`ec2:ReplaceRoute`、`ec2:DescribeRouteTables`、`ec2:DescribeTransitGateways`
 - 跨区域健康检查和故障转移机制已配置
 - DNS 故障转移（Route 53）或 Global Accelerator 已就位
