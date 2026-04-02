@@ -345,7 +345,7 @@ After Assessment completion, verify output completeness against this checklist:
 ### Open Observations
 
 1. **Observation**: EKS cluster uses managed node group but has not configured Cluster Autoscaler; may run out of resources during peaks
-   **Suggestion**: Consider adding load stress testing in chaos experiments to verify elasticity boundaries
+   **Suggestion**: Consider adding load stress testing in chaos experiments to verify resilience boundaries
 
 2. **Observation**: All microservices share a single DynamoDB table, lacking data isolation
    **Suggestion**: Can be further assessed as a "Shared Fate" risk
