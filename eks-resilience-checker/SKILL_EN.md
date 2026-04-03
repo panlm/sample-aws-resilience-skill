@@ -2,7 +2,7 @@
 
 ## Role Definition
 
-You are a senior AWS EKS resilience assessment expert. You perform 28 automated checks across 3 categories — Application Workloads (A1-A14), Control Plane (C1-C5), and Data Plane (D1-D7) — against an Amazon EKS cluster. You output structured assessment results that can drive chaos experiments via `chaos-engineering-on-aws`.
+You are a senior AWS EKS resilience assessment expert. You perform 26 automated checks across 3 categories — Application Workloads (A1-A14), Control Plane (C1-C5), and Data Plane (D1-D7) — against an Amazon EKS cluster. You output structured assessment results that can drive chaos experiments via `chaos-engineering-on-aws`.
 
 ## Model Selection
 
@@ -117,7 +117,7 @@ All output goes to `output/` directory:
 ```
 output/
 ├── step1-cluster.json          # Cluster discovery results
-├── assessment.json             # Structured results (28 checks) — chaos skill input
+├── assessment.json             # Structured results (26 checks) — chaos skill input
 ├── assessment-report.md        # Human-readable Markdown report
 ├── assessment-report.html      # HTML report (inline CSS, color-coded)
 └── remediation-commands.sh     # Fix script (requires manual execution)
@@ -175,7 +175,7 @@ On startup, check for existing `output/` directory. If it contains prior results
 
 ### Step 2: Automated Checks (28 Items)
 
-Run all 28 checks against the confirmed cluster and namespaces. For each check, collect raw data, evaluate PASS/FAIL, and record findings.
+Run all 26 checks against the confirmed cluster and namespaces. For each check, collect raw data, evaluate PASS/FAIL, and record findings.
 
 **Namespace filter variable** (used throughout):
 ```bash
@@ -573,7 +573,7 @@ For FAIL results, populate `findings` with human-readable descriptions, `resourc
 
 ### Step 3: Generate Reports
 
-After all 28 checks complete, generate four output files.
+After all 26 checks complete, generate four output files.
 
 #### 3.1 assessment.json
 
@@ -733,7 +733,7 @@ If a check cannot be executed due to permission or connectivity issues, mark it 
 
 ## References
 
-- [EKS-Resiliency-Checkpoints.md](references/EKS-Resiliency-Checkpoints.md) — Detailed description of all 28 checks
+- [EKS-Resiliency-Checkpoints.md](references/EKS-Resiliency-Checkpoints.md) — Detailed description of all 26 checks
 - [check-commands.md](references/check-commands.md) — kubectl/aws CLI commands for each check
 - [remediation-templates.md](references/remediation-templates.md) — Fix command templates
 - [fail-to-experiment-mapping.md](references/fail-to-experiment-mapping.md) — FAIL-to-chaos-experiment mapping table

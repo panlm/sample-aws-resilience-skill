@@ -2,7 +2,7 @@
 
 # EKS Resilience Checker
 
-An AI-powered Agent Skill that performs automated resilience assessment of Amazon EKS clusters against 28 best practice checks covering **Application workloads** (A1-A14), **Control Plane** (C1-C5), and **Data Plane** (D1-D7). Outputs structured results that can directly feed into the `chaos-engineering-on-aws` skill to drive chaos experiments.
+An AI-powered Agent Skill that performs automated resilience assessment of Amazon EKS clusters against 26 best practice checks covering **Application workloads** (A1-A14), **Control Plane** (C1-C5), and **Data Plane** (D1-D7). Outputs structured results that can directly feed into the `chaos-engineering-on-aws` skill to drive chaos experiments.
 
 ## How It Fits — Resilience Lifecycle
 
@@ -19,7 +19,7 @@ An AI-powered Agent Skill that performs automated resilience assessment of Amazo
 │                                      ^                              │                 │
 │                                      │    ┌─────────────────────────┴──────────────┐  │
 │                                      │    │ eks-resilience-checker (this Skill)     │  │
-│                                      │    │ 1. 28 K8s resilience checks            │  │
+│                                      │    │ 1. 26 K8s resilience checks            │  │
 │                                      │    │ 2. FAIL -> experiment recommendations  │  │
 │                                      │    └────────────────────────────────────────┘  │
 │                                      └──────────── Feedback Loop ────────────────────┘ │
@@ -31,7 +31,7 @@ An AI-powered Agent Skill that performs automated resilience assessment of Amazo
 | 1 | **aws-rma-assessment** | Stage 1: Set Objectives | Guided Q&A | Resilience maturity score + roadmap |
 | 2 | **aws-resilience-modeling** | Stage 2: Design & Implement | AWS account / architecture docs | Risk inventory + resource scan + mitigations |
 | 3 | **chaos-engineering-on-aws** | Stage 3: Evaluate & Test | Skill 2 report + Skill 4 assessment | Experiment report + log analysis + validation |
-| 4 | **eks-resilience-checker** | Stage 3: Evaluate & Test | Direct EKS cluster access | 28-check compliance report + experiment recommendations |
+| 4 | **eks-resilience-checker** | Stage 3: Evaluate & Test | Direct EKS cluster access | 26-check compliance report + experiment recommendations |
 
 ## Installation
 
@@ -140,7 +140,7 @@ When MCP is unavailable, the skill falls back to `kubectl` + `aws` CLI.
 
 ```
 output/
-├── assessment.json              # Structured results (28 checks) — consumable by chaos skill
+├── assessment.json              # Structured results (26 checks) — consumable by chaos skill
 ├── assessment-report.md         # Human-readable report (Markdown)
 ├── assessment-report.html       # HTML report (inline CSS, standalone)
 └── remediation-commands.sh      # One-click fix script (executable kubectl/aws commands)
@@ -185,7 +185,7 @@ The chaos skill reads `experiment_recommendations` from `assessment.json`, sorts
 | Step | Name | Output |
 |------|------|--------|
 | 1 | Cluster Discovery | Cluster metadata, namespace list |
-| 2 | Automated Checks (28 items) | Per-check findings |
+| 2 | Automated Checks (26 items) | Per-check findings |
 | 3 | Generate Reports | `output/assessment.json` + `.md` + `.html` + `remediation-commands.sh` |
 | 4 | Experiment Recommendations (optional) | FAIL-to-experiment mapping |
 
@@ -205,7 +205,7 @@ eks-resilience-checker/
 ├── doc/
 │   └── prd.md                          # Product requirements
 ├── references/
-│   ├── EKS-Resiliency-Checkpoints.md   # 28-check detailed descriptions
+│   ├── EKS-Resiliency-Checkpoints.md   # 26-check detailed descriptions
 │   ├── check-commands.md               # kubectl/aws commands per check
 │   ├── remediation-templates.md        # Fix command templates
 │   └── fail-to-experiment-mapping.md   # FAIL → experiment mapping table

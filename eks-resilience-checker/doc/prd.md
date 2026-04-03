@@ -5,7 +5,7 @@
 **日期**: 2026-04-03  
 **状态**: Draft  
 **仓库**: `sample-aws-resilience-skill/eks-resilience-checker`  
-**变更**: v0.2 — 日志分析移至 chaos-engineering-on-aws；聚焦 28 项评估；assessment.json → chaos skill 集成接口  
+**变更**: v0.2 — 日志分析移至 chaos-engineering-on-aws；聚焦 26 项评估；assessment.json → chaos skill 集成接口  
 **变更**: v0.3 — 新增分发安装方式（`npx skills add`）；更新 Lifecycle 图加入第四个 Skill  
 **变更**: v0.4 — Section 10 改为"从未合并 PR 借鉴的内容"，去掉 MCP Server 方案，聚焦 Skill 本身
 
@@ -15,7 +15,7 @@
 
 ### 1.1 产品愿景
 
-开发一个面向 **Claude Code / Kiro CLI / Codex** 的 Agent Skill，对 Amazon EKS 集群执行全面的韧性架构评估。覆盖三层：**应用工作负载**（A1-A14）、**控制平面**（C1-C5）、**数据平面**（D1-D7），共 28 项检查。输出结构化评估结果，可直接作为 `chaos-engineering-on-aws` 的输入驱动混沌实验。
+开发一个面向 **Claude Code / Kiro CLI / Codex** 的 Agent Skill，对 Amazon EKS 集群执行全面的韧性架构评估。覆盖三层：**应用工作负载**（A1-A14）、**控制平面**（C1-C5）、**数据平面**（D1-D7），共 26 项检查。输出结构化评估结果，可直接作为 `chaos-engineering-on-aws` 的输入驱动混沌实验。
 
 ### 1.2 在 Resilience Lifecycle 中的定位
 
@@ -33,7 +33,7 @@
 │                                      │                              │                     │
 │                                      │    ┌─────────────────────────┴──────────────────┐  │
 │                                      │    │ eks-resilience-checker (本 Skill, 第 4 个)   │  │
-│                                      │    │ ① 28 项 K8s 韧性评估 → assessment.json      │  │
+│                                      │    │ ① 26 项 K8s 韧性评估 → assessment.json      │  │
 │                                      │    │ ② FAIL → 实验推荐 → chaos skill 消费        │  │
 │                                      │    └────────────────────────────────────────────┘  │
 │                                      └──────────── Feedback Loop ────────────────────────┘ │
@@ -47,15 +47,15 @@
 | 1 | **aws-rma-assessment** | Stage 1: Set Objectives | 引导式问答 | 韧性成熟度评分 + 改进路线图 |
 | 2 | **aws-resilience-modeling** | Stage 2: Design & Implement | AWS 账号 / 架构文档 | 风险清单 + 资源扫描 + 缓解策略 |
 | 3 | **chaos-engineering-on-aws** | Stage 3: Evaluate & Test | Skill 2 报告 + Skill 4 评估 | 实验报告 + 日志分析 + 韧性验证 |
-| 4 | **eks-resilience-checker** | Stage 3: Evaluate & Test | EKS 集群直连 | 28 项合规报告 + 实验推荐 |
+| 4 | **eks-resilience-checker** | Stage 3: Evaluate & Test | EKS 集群直连 | 26 项合规报告 + 实验推荐 |
 
-**一句话定义**：自动化评估 EKS 集群 28 项韧性最佳实践，输出结构化结果供混沌实验消费。
+**一句话定义**：自动化评估 EKS 集群 26 项韧性最佳实践，输出结构化结果供混沌实验消费。
 
 ### 1.3 职责边界
 
 | 功能 | eks-resilience-checker | chaos-engineering-on-aws |
 |------|----------------------|--------------------------|
-| 28 项 K8s 配置评估 | ✅ 本 Skill | ❌ |
+| 26 项 K8s 配置评估 | ✅ 本 Skill | ❌ |
 | 评估报告 + 修复脚本 | ✅ 本 Skill | ❌ |
 | FAIL → 实验推荐映射 | ✅ 本 Skill 输出 | ✅ Step 1 消费 |
 | 混沌实验执行 | ❌ | ✅ |
@@ -67,7 +67,7 @@
 
 | 没有这个 Skill | 有了这个 Skill |
 |---------------|---------------|
-| 手动逐项检查 EKS 配置，耗时且容易遗漏 | 自动化 28 项检查，5 分钟出报告 |
+| 手动逐项检查 EKS 配置，耗时且容易遗漏 | 自动化 26 项检查，5 分钟出报告 |
 | 混沌实验选目标靠经验 | FAIL 项自动映射到推荐实验场景 |
 | 实验前不知道哪些服务缺少 PDB / Probe / Anti-Affinity | 自动识别韧性短板，量化合规分数 |
 | AWS 资源风险和 K8s 配置风险脱节 | 两个 Skill 的评估结果合流到 chaos-engineering-on-aws |
@@ -92,7 +92,7 @@
 
 ## 2. 功能范围
 
-### 2.1 EKS 韧性基线评估（28 项检查）
+### 2.1 EKS 韧性基线评估（26 项检查）
 
 自动化评估 EKS 集群的韧性配置，覆盖三个层面：
 
@@ -141,7 +141,7 @@
 
 ```
 output/
-├── assessment.json              # 结构化评估结果（28 项）— chaos skill 可消费
+├── assessment.json              # 结构化评估结果（26 项）— chaos skill 可消费
 ├── assessment-report.md         # 人类可读报告（Markdown）
 ├── assessment-report.html       # HTML 报告（内联 CSS，可独立打开）
 └── remediation-commands.sh      # 一键修复脚本（可执行的 kubectl/aws 命令）
@@ -346,7 +346,7 @@ Step 1: 集群发现
   ├── aws eks describe-cluster → 版本、VPC、endpoint、logging、addons
   └── 确认目标 namespace 列表（排除 kube-system 等系统 namespace）
 
-Step 2: 自动化检查（28 项）
+Step 2: 自动化检查（26 项）
   ├── Application checks (A1-A14): kubectl 查询工作负载配置
   ├── Control Plane checks (C1-C5): aws eks API + kubectl 查询
   └── Data Plane checks (D1-D7): kubectl 查询节点 + 资源配置
@@ -380,7 +380,7 @@ eks-resilience-checker/
 ├── doc/
 │   └── prd.md                          # 本文档
 ├── references/
-│   ├── EKS-Resiliency-Checkpoints.md   # 28 项检查详细说明（已有）
+│   ├── EKS-Resiliency-Checkpoints.md   # 26 项检查详细说明（已有）
 │   ├── check-commands.md               # 每项检查对应的 kubectl/aws 命令
 │   ├── remediation-templates.md        # 修复命令模板
 │   └── fail-to-experiment-mapping.md   # FAIL → 实验推荐映射表
@@ -425,7 +425,7 @@ eks-resilience-checker/
 | D3 | 支持 EKS Auto Mode | D7 检查自动 PASS（CoreDNS 由平台管理）；节点相关检查按 Auto Mode 调整 |
 | D4 | 不支持 Fargate 专项检查 | Fargate 是计算形态选择，不是韧性问题。检测到 Fargate → 跳过不适用检查 |
 | D5 | 评估结果只生成本地文件，不持久化到 DynamoDB/S3 | 保持 Skill 简单，用户需要持久化可自行上传 |
-| D6 | LLM 不参与检查逻辑 | 28 项检查是确定性规则，不需要 LLM 判断。LLM 只负责生成报告叙述和改进建议 |
+| D6 | LLM 不参与检查逻辑 | 26 项检查是确定性规则，不需要 LLM 判断。LLM 只负责生成报告叙述和改进建议 |
 
 ---
 
@@ -441,7 +441,7 @@ eks-resilience-checker/
 
 | 阶段 | 内容 | 交付物 |
 |------|------|--------|
-| **M1: 核心评估** | 28 项检查 + JSON/MD 报告 | SKILL.md + assess.sh + references/ |
+| **M1: 核心评估** | 26 项检查 + JSON/MD 报告 | SKILL.md + assess.sh + references/ |
 | **M2: 修复脚本** | remediation-commands.sh + HTML 报告 | scripts/ + 报告增强 |
 | **M3: 实验推荐** | FAIL → 实验映射 + assessment.json 集成接口 | fail-to-experiment-mapping.md |
 | **M4: chaos 集成** | chaos-engineering-on-aws Step 1 消费 assessment.json | chaos skill 侧改动 |
@@ -531,7 +531,7 @@ sample-aws-resilience-skill/
 ---
 name: eks-resilience-checker
 description: >
-  Assess Amazon EKS cluster resilience against 28 best practice checks
+  Assess Amazon EKS cluster resilience against 26 best practice checks
   covering application workloads, control plane, and data plane.
   Outputs structured assessment.json for chaos-engineering-on-aws integration.
   Use when the user wants to evaluate EKS cluster resilience, run resilience
@@ -586,7 +586,7 @@ cp -r sample-aws-resilience-skill/eks-resilience-checker ~/.claude/skills/
 
 | 资料 | 位置 | 用途 |
 |------|------|------|
-| EKS Resiliency Checkpoints | `eks-resilience-checker/EKS-Resiliency-Checkpoints.md` | 28 项检查详细定义 |
+| EKS Resiliency Checkpoints | `eks-resilience-checker/EKS-Resiliency-Checkpoints.md` | 26 项检查详细定义 |
 | eks-app-log-analysis | `github.com/panlm/skills/eks-app-log-analysis` | 日志分析模式参考（→ chaos skill 扩展） |
 | log_collector.py | `graph-driven-chaos/code/runner/log_collector.py` | 错误分类逻辑参考（→ chaos skill 扩展） |
 | chaos-engineering-on-aws PRD | `chaos-engineering-on-aws/doc/prd.md` | Skill PRD 格式参考 |
@@ -601,7 +601,7 @@ cp -r sample-aws-resilience-skill/eks-resilience-checker ~/.claude/skills/
 
 ### 10.1 背景
 
-`awslabs/eks-mcp-server` 有一个未被官方接受的 PR，实现了 `check_eks_resiliency` 功能——完整的 28 项韧性检查 Python 实现（6069 行）。虽然不会作为 MCP Server 发布，但其中有大量可借鉴的内容来完善本 Skill。
+`awslabs/eks-mcp-server` 有一个未被官方接受的 PR，实现了 `check_eks_resiliency` 功能——完整的 26 项韧性检查 Python 实现（6069 行）。虽然不会作为 MCP Server 发布，但其中有大量可借鉴的内容来完善本 Skill。
 
 源码位置：`/home/ubuntu/tech/blog/g3-skill/eks-resilience-checker/src/eks-mcp-server/`
 
@@ -609,7 +609,7 @@ cp -r sample-aws-resilience-skill/eks-resilience-checker ~/.claude/skills/
 
 | 借鉴内容 | 用在哪里 | 说明 |
 |----------|---------|------|
-| 28 项检查的判定逻辑和边界处理 | `scripts/assess.sh` + SKILL 指令 Step 2 | Python 源码中对 CRD 不存在、API 版本差异等场景的处理方式，转化为 bash 脚本中的 error handling |
+| 26 项检查的判定逻辑和边界处理 | `scripts/assess.sh` + SKILL 指令 Step 2 | Python 源码中对 CRD 不存在、API 版本差异等场景的处理方式，转化为 bash 脚本中的 error handling |
 | remediation 文本 + YAML 示例 | `references/remediation-templates.md` | PR 中每项检查都有详细修复步骤和完整 YAML 示例，比初始版本更具体 |
 | `eks-resiliency-checks.md` 的 "Why it matters" 说明 | `references/eks-resiliency-checks-mcp.md` | 直接复制作为补充参考文档，Agent 可据此向用户解释检查的业务价值 |
 | A9 Custom Metrics 多路径检查 | `references/check-commands.md` A9 | PR 同时查 KEDA CRD + Prometheus Adapter + metrics.k8s.io API 三条路径，我们的检查命令也覆盖了这三条 |

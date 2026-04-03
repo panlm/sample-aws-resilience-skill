@@ -2,7 +2,7 @@
 
 ## 角色定位
 
-你是一名资深 AWS EKS 韧性评估专家。对 Amazon EKS 集群执行全面的韧性架构评估，覆盖三层：**应用工作负载**（A1-A14）、**控制平面**（C1-C5）、**数据平面**（D1-D7），共 28 项检查。输出结构化评估结果，可直接作为 `chaos-engineering-on-aws` Skill 的输入驱动混沌实验。
+你是一名资深 AWS EKS 韧性评估专家。对 Amazon EKS 集群执行全面的韧性架构评估，覆盖三层：**应用工作负载**（A1-A14）、**控制平面**（C1-C5）、**数据平面**（D1-D7），共 26 项检查。输出结构化评估结果，可直接作为 `chaos-engineering-on-aws` Skill 的输入驱动混沌实验。
 
 ## 模型选择
 
@@ -119,7 +119,7 @@ kubectl get nodes
 
 ```
 output/
-├── assessment.json              # 结构化评估结果（28 项）— chaos skill 可消费
+├── assessment.json              # 结构化评估结果（26 项）— chaos skill 可消费
 ├── assessment-report.md         # 人类可读报告（Markdown）
 ├── assessment-report.html       # HTML 报告（内联 CSS，可独立打开）
 └── remediation-commands.sh      # 一键修复脚本（可执行的 kubectl/aws 命令）
@@ -175,9 +175,9 @@ output/
 
 ---
 
-### 步骤 2：自动化检查（28 项）
+### 步骤 2：自动化检查（26 项）
 
-依次执行以下 28 项检查。每项记录：状态（PASS/FAIL/INFO）、发现详情、受影响资源列表、修复建议。
+依次执行以下 26 项检查。每项记录：状态（PASS/FAIL/INFO）、发现详情、受影响资源列表、修复建议。
 
 ---
 
@@ -978,7 +978,7 @@ chaos skill 消费方式：
 
 | 资料 | 位置 | 用途 |
 |------|------|------|
-| EKS Resiliency Checkpoints | [references/EKS-Resiliency-Checkpoints.md](references/EKS-Resiliency-Checkpoints.md) | 28 项检查详细定义 |
+| EKS Resiliency Checkpoints | [references/EKS-Resiliency-Checkpoints.md](references/EKS-Resiliency-Checkpoints.md) | 26 项检查详细定义 |
 | fault-catalog.yaml | `chaos-engineering-on-aws/references/fault-catalog.yaml` | FAIL → 实验映射的故障类型 |
 | AWS EKS Best Practices | `aws.github.io/aws-eks-best-practices` | 检查项理论依据 |
 | PetSite 评估示例 | [examples/petsite-assessment.md](examples/petsite-assessment.md) | 报告格式参考 |

@@ -1,6 +1,6 @@
 # EKS Resilience Check Commands
 
-> Exact runnable commands, PASS criteria, and severity for each of the 28 checks.
+> Exact runnable commands, PASS criteria, and severity for each of the 26 checks.
 > System namespaces excluded: `kube-system`, `kube-public`, `kube-node-lease`.
 
 ---

@@ -3,7 +3,7 @@
 
 ## Overview
 
-The EKS Resiliency Checker is a comprehensive tool that evaluates Amazon EKS clusters against 28 critical resiliency best practices. It performs automated checks across three main categories: Application workloads, Control Plane configuration, and Data Plane setup. The tool provides detailed findings, compliance status, and actionable remediation guidance for each check.
+The EKS Resiliency Checker is a comprehensive tool that evaluates Amazon EKS clusters against 26 critical resiliency best practices. It performs automated checks across three main categories: Application workloads, Control Plane configuration, and Data Plane setup. The tool provides detailed findings, compliance status, and actionable remediation guidance for each check.
 
 ## Check Categories
 
@@ -513,7 +513,7 @@ These checks assess worker node configuration, resource management, and cluster 
 
 ## Summary
 
-The EKS Resiliency Checker provides a comprehensive evaluation of cluster health across 28 critical areas. Each check includes:
+The EKS Resiliency Checker provides a comprehensive evaluation of cluster health across 26 critical areas. Each check includes:
 
 - **Clear compliance status** (✅ PASS / ❌ FAIL)
 - **Detailed findings** with specific resources identified
