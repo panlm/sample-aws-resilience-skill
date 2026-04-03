@@ -72,7 +72,9 @@ fi
 mkdir -p "$OUTPUT_DIR"
 LOGS_FILE="$OUTPUT_DIR/step5-logs.jsonl"
 SUMMARY_FILE="$OUTPUT_DIR/step5-log-summary.json"
+INTERNAL_FILE=$(mktemp "${OUTPUT_DIR}/.log-collector-XXXXXX.jsonl")
 : > "$LOGS_FILE"
+: > "$INTERNAL_FILE"
 
 # ---------------------------------------------------------------------------
 # Discover services
@@ -161,7 +163,7 @@ process_line() {
     now_epoch=$(date +%s)
     local minute=$(( (now_epoch - START_EPOCH) / 60 ))
 
-    # Append JSONL (single write is atomic for small lines on Linux)
+    # Write clean JSONL for user output
     jq -cn \
         --arg ts "$ts" \
         --arg pod "$pod_name" \
@@ -169,9 +171,17 @@ process_line() {
         --arg level "$level" \
         --arg cat "$category" \
         --arg msg "$msg" \
-        --argjson min "$minute" \
-        '{timestamp:$ts, pod:$pod, service:$svc, level:$level, category:$cat, message:$msg, _minute:$min}' \
+        '{timestamp:$ts, pod:$pod, service:$svc, level:$level, category:$cat, message:$msg}' \
         >> "$LOGS_FILE"
+
+    # Write minute-tagged copy for summary timeline
+    jq -cn \
+        --arg ts "$ts" \
+        --arg level "$level" \
+        --arg cat "$category" \
+        --argjson min "$minute" \
+        '{timestamp:$ts, level:$level, category:$cat, _minute:$min}' \
+        >> "$INTERNAL_FILE"
 }
 
 # ---------------------------------------------------------------------------
@@ -187,6 +197,7 @@ cleanup() {
     done
     wait 2>/dev/null || true
     write_summary
+    rm -f "$INTERNAL_FILE"
     echo "[log-collector] Finished at $(date -u +%FT%TZ)" >&2
 }
 
@@ -205,8 +216,8 @@ write_summary() {
     local actual_duration=$(( $(date +%s) - START_EPOCH ))
     local max_minute=$(( actual_duration / 60 ))
 
-    # Handle empty JSONL file
-    if [[ ! -s "$LOGS_FILE" ]]; then
+    # Handle empty log file
+    if [[ ! -s "$INTERNAL_FILE" ]]; then
         jq -n \
             --arg mode "$MODE" \
             --argjson dur "$DURATION" \
@@ -229,6 +240,7 @@ write_summary() {
         return
     fi
 
+    # Build summary from the internal (minute-tagged) file
     jq -s --arg mode "$MODE" \
         --argjson dur "$DURATION" \
         --arg ns "$NAMESPACE" \
@@ -238,7 +250,7 @@ write_summary() {
     . as $all |
     length as $total |
 
-    # Errors: lines with a specific error category, or "other" with ERROR level
+    # Errors: lines with a recognized error category, or "other" with ERROR level
     [.[] | select(.category != "other" or .level == "ERROR")] as $errors |
 
     # Per-category counts
@@ -286,7 +298,7 @@ write_summary() {
         first_error_at: $first_err,
         recovery_detected_at: $recovery
     }
-    ' "$LOGS_FILE" > "$SUMMARY_FILE"
+    ' "$INTERNAL_FILE" > "$SUMMARY_FILE"
 
     local total_lines total_errors
     total_lines=$(jq '.total_lines' "$SUMMARY_FILE")
@@ -324,8 +336,21 @@ print_status() {
 run_live() {
     for svc in "${SVC_LIST[@]}"; do
         local pods
+        # Try label app=$svc first
         pods=$(kubectl get pods -l "app=$svc" -n "$NAMESPACE" \
             -o jsonpath='{.items[*].metadata.name}' 2>/dev/null || true)
+
+        # Fallback: resolve deployment's actual selector labels
+        if [[ -z "$pods" ]]; then
+            local selector
+            selector=$(kubectl get deployment "$svc" -n "$NAMESPACE" \
+                -o jsonpath='{.spec.selector.matchLabels}' 2>/dev/null | \
+                jq -r 'to_entries | map("\(.key)=\(.value)") | join(",")' 2>/dev/null || true)
+            if [[ -n "$selector" ]]; then
+                pods=$(kubectl get pods -l "$selector" -n "$NAMESPACE" \
+                    -o jsonpath='{.items[*].metadata.name}' 2>/dev/null || true)
+            fi
+        fi
 
         if [[ -z "$pods" ]]; then
             echo "[log-collector] WARN: no pods found for service=$svc" >&2
@@ -381,7 +406,18 @@ run_post() {
         # Determine pod name from deployment
         local pod_name
         pod_name=$(kubectl get pods -l "app=$svc" -n "$NAMESPACE" \
-            -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "${svc}-post")
+            -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+        if [[ -z "$pod_name" ]]; then
+            local selector
+            selector=$(kubectl get deployment "$svc" -n "$NAMESPACE" \
+                -o jsonpath='{.spec.selector.matchLabels}' 2>/dev/null | \
+                jq -r 'to_entries | map("\(.key)=\(.value)") | join(",")' 2>/dev/null || true)
+            if [[ -n "$selector" ]]; then
+                pod_name=$(kubectl get pods -l "$selector" -n "$NAMESPACE" \
+                    -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+            fi
+        fi
+        pod_name="${pod_name:-${svc}-post}"
 
         while IFS= read -r line; do
             [[ -z "$line" ]] && continue
@@ -390,6 +426,7 @@ run_post() {
     done
 
     write_summary
+    rm -f "$INTERNAL_FILE"
 }
 
 # ---------------------------------------------------------------------------
