@@ -4,24 +4,32 @@
 
 一组 AI 驱动的 Agent Skill，覆盖 AWS 系统韧性的完整生命周期 — 从成熟度评估、风险分析到混沌工程验证。适用于 [Claude Code](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview)、[Kiro](https://kiro.dev/) 以及任何支持 skill/prompt 框架的 AI 编程助手。
 
-## 三个 Skill 的关系
+## 四个 Skill 的关系
 
-三个 Skill 对应 [AWS Resilience Lifecycle Framework](https://docs.aws.amazon.com/prescriptive-guidance/latest/resilience-lifecycle-framework/overview.html) 的不同阶段，组成完整的韧性改进流水线：
+四个 Skill 对应 [AWS Resilience Lifecycle Framework](https://docs.aws.amazon.com/prescriptive-guidance/latest/resilience-lifecycle-framework/overview.html) 的不同阶段，组成完整的韧性改进流水线：
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────────────┐
-│                        AWS Resilience Lifecycle Framework                            │
-│                                                                                     │
-│  Stage 1: 设定目标          Stage 2: 设计与实施          Stage 3: 评估与测试          │
-│  ┌───────────────────┐      ┌───────────────────────┐      ┌─────────────────────┐  │
-│  │  aws-rma-          │      │  resilience-            │      │  chaos-engineering-  │  │
-│  │  assessment        │─────►│  modeling               │─────►│  on-aws              │  │
-│  │                    │      │                        │      │                      │  │
-│  │  "我们在哪里？"    │      │  "哪里可能出问题？"    │      │  "真的会坏吗？"      │  │
-│  └───────────────────┘      └───────────────────────┘      └──────────┬───────────┘  │
-│                                        ▲                              │              │
-│                                        └──────── 反馈闭环 ────────────┘              │
-└─────────────────────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                              AWS Resilience Lifecycle Framework                                    │
+│                                                                                                   │
+│  Stage 1: 设定目标          Stage 2: 设计与实施          Stage 3: 评估与测试                       │
+│  ┌───────────────────┐      ┌───────────────────────┐      ┌─────────────────────┐               │
+│  │  aws-rma-          │      │  resilience-            │      │  chaos-engineering-  │               │
+│  │  assessment        │─────►│  modeling               │─────►│  on-aws              │               │
+│  │                    │      │                        │      │                      │               │
+│  │  "我们在哪里？"    │      │  "哪里可能出问题？"    │      │  "真的会坏吗？"      │               │
+│  └───────────────────┘      └───────────────────────┘      └──────────┬───────────┘               │
+│                                        ▲                              │                            │
+│                                        └──────── 反馈闭环 ────────────┘                            │
+│                                                                                                   │
+│                                        Stage 3: 评估与测试                                        │
+│                                        ┌─────────────────────┐                                    │
+│                                        │  eks-resilience-      │                                    │
+│                                        │  checker              │──── 输出供混沌工程消费             │
+│                                        │                      │                                    │
+│                                        │  "EKS 够韧吗？"      │                                    │
+│                                        └─────────────────────┘                                    │
+└──────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 | # | Skill | 生命周期阶段 | 输入 | 输出 |
@@ -29,9 +37,11 @@
 | 1 | **aws-rma-assessment** | Stage 1: 设定目标 | 引导式问答 | 韧性成熟度评分 + 改进路线图 |
 | 2 | **aws-resilience-modeling** | Stage 2: 设计与实施 | AWS 账户访问或架构文档 | 风险清单 + 资源扫描 + 缓解策略 |
 | 3 | **chaos-engineering-on-aws** | Stage 3: 评估与测试 | Skill #2 的评估报告 | 实验结果 + 验证报告 + 更新后的韧性评分 |
+| 4 | **eks-resilience-checker** | Stage 3: 评估与测试 | EKS 集群 kubectl 访问权限 | 28 项合规报告 + 实验建议 |
 
 ### 推荐使用流程
 
+0. **运行 EKS 韧性检查**（可选）— 建立 K8s 级别基线，识别集群特定风险
 1. **先做 RMA 评估** — 了解组织的韧性成熟度水平，设定改进目标
 2. **运行韧性评估** — 深入分析 AWS 基础设施，识别具体风险和故障模式
 3. **执行混沌工程** — 通过受控故障注入实验验证发现的问题
@@ -83,6 +93,20 @@
 - Game Day 团队演练模式
 
 **调用方式：** 在对话中提及 "混沌工程"、"故障注入" 或 "chaos engineering"。
+
+### 4. EKS 韧性检查器 (`eks-resilience-checker`)
+
+**功能：** 基于 28 项最佳实践对 Amazon EKS 集群的韧性进行评估，覆盖应用工作负载、控制平面和数据平面 — 输出结构化建议，可直接供混沌工程 Skill 消费。
+
+**适用场景：** EKS 专项基线 — 在运行混沌实验之前识别 Kubernetes 级别的韧性缺口。
+
+**核心能力：**
+- 28 项韧性检查，覆盖应用、控制平面和数据平面维度
+- 合规报告（含通过/失败状态和严重级别）
+- 结构化 `assessment.json` 输出，与 `chaos-engineering-on-aws` 集成
+- 基于识别缺口的实验建议
+
+**调用方式：** 在对话中提及 "EKS 韧性检查"、"集群评估" 或 "cluster resilience check"。
 
 ## 故障注入工具选择
 
@@ -151,6 +175,15 @@ git clone https://github.com/aws-samples/sample-gcr-resilience-skill.git
 │   └── assets/
 │       ├── html-report-template.html  # 交互式 HTML 报告模板
 │       └── example-report-template.md # Markdown 报告示例
+│
+├── eks-resilience-checker/             # EKS 韧性最佳实践检查
+│   ├── SKILL.md                       # Skill 定义
+│   ├── SKILL_EN.md                    # 英文 Skill 指令
+│   ├── SKILL_ZH.md                    # 中文 Skill 指令
+│   ├── README.md                      # Skill 说明文档
+│   ├── references/                    # 参考文档
+│   ├── examples/                      # 示例场景
+│   └── scripts/                       # 辅助脚本
 │
 ├── chaos-engineering-on-aws/          # 混沌工程实验
 │   ├── SKILL.md                       # Skill 定义（六步工作流）

@@ -4,25 +4,33 @@
 
 A collection of AI-powered Agent Skills for comprehensive AWS system resilience — from maturity assessment through risk analysis to chaos engineering validation. Built for [Claude Code](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview), [Kiro](https://kiro.dev/), and any AI coding assistant that supports the skill/prompt framework.
 
-## How the Three Skills Fit Together
+## How the Four Skills Fit Together
 
 These skills map to the [AWS Resilience Lifecycle Framework](https://docs.aws.amazon.com/prescriptive-guidance/latest/resilience-lifecycle-framework/overview.html), forming a complete resilience improvement pipeline:
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────────────┐
-│                        AWS Resilience Lifecycle Framework                            │
-│                                                                                     │
-│  Stage 1: Set Objectives    Stage 2: Design & Implement    Stage 3: Evaluate & Test │
-│  ┌───────────────────┐      ┌───────────────────────┐      ┌─────────────────────┐  │
-│  │  aws-rma-          │      │  resilience-            │      │  chaos-engineering-  │  │
-│  │  assessment        │─────►│  modeling               │─────►│  on-aws              │  │
-│  │                    │      │                        │      │                      │  │
-│  │  "Where are we?"   │      │  "What could go wrong?"│      │  "Does it actually   │  │
-│  │                    │      │                        │      │   break?"             │  │
-│  └───────────────────┘      └───────────────────────┘      └──────────┬───────────┘  │
-│                                        ▲                              │              │
-│                                        └──────── Feedback Loop ───────┘              │
-└─────────────────────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                              AWS Resilience Lifecycle Framework                                    │
+│                                                                                                   │
+│  Stage 1: Set Objectives    Stage 2: Design & Implement    Stage 3: Evaluate & Test               │
+│  ┌───────────────────┐      ┌───────────────────────┐      ┌─────────────────────┐               │
+│  │  aws-rma-          │      │  resilience-            │      │  chaos-engineering-  │               │
+│  │  assessment        │─────►│  modeling               │─────►│  on-aws              │               │
+│  │                    │      │                        │      │                      │               │
+│  │  "Where are we?"   │      │  "What could go wrong?"│      │  "Does it actually   │               │
+│  │                    │      │                        │      │   break?"             │               │
+│  └───────────────────┘      └───────────────────────┘      └──────────┬───────────┘               │
+│                                        ▲                              │                            │
+│                                        └──────── Feedback Loop ───────┘                            │
+│                                                                                                   │
+│                                        Stage 3: Evaluate & Test                                   │
+│                                        ┌─────────────────────┐                                    │
+│                                        │  eks-resilience-      │                                    │
+│                                        │  checker              │──── feeds into chaos-engineering   │
+│                                        │                      │                                    │
+│                                        │  "Is EKS resilient?" │                                    │
+│                                        └─────────────────────┘                                    │
+└──────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 | # | Skill | Lifecycle Stage | Input | Output |
@@ -30,9 +38,11 @@ These skills map to the [AWS Resilience Lifecycle Framework](https://docs.aws.am
 | 1 | **aws-rma-assessment** | Stage 1: Set Objectives | Guided Q&A with stakeholders | Resilience maturity score + improvement roadmap |
 | 2 | **aws-resilience-modeling** | Stage 2: Design & Implement | AWS account access or architecture docs | Risk inventory + resource scan + mitigation strategies |
 | 3 | **chaos-engineering-on-aws** | Stage 3: Evaluate & Test | Assessment report from Skill #2 | Experiment results + validation report + updated resilience score |
+| 4 | **eks-resilience-checker** | Stage 3: Evaluate & Test | EKS cluster kubectl access | 28-check compliance report + experiment recommendations |
 
 ### Recommended Workflow
 
+0. **Run EKS Resilience Check** (optional) — Establish K8s-level baseline and identify cluster-specific risks
 1. **Start with RMA** — Understand your organization's resilience maturity level and set improvement objectives
 2. **Run Resilience Assessment** — Deep-dive into your AWS infrastructure to identify specific risks and failure modes
 3. **Execute Chaos Engineering** — Validate findings through controlled fault injection experiments on real infrastructure
@@ -84,6 +94,20 @@ These skills map to the [AWS Resilience Lifecycle Framework](https://docs.aws.am
 - Game Day mode for team exercises
 
 **Invoke:** Mention "chaos engineering", "fault injection", or "混沌工程" in conversation.
+
+### 4. EKS Resilience Checker (`eks-resilience-checker`)
+
+**What it does:** Evaluates Amazon EKS cluster resilience against 28 best practice checks covering application workloads, control plane, and data plane — then outputs structured recommendations that feed directly into the Chaos Engineering skill.
+
+**Best for:** EKS-specific baseline — identifying Kubernetes-level resilience gaps before running chaos experiments.
+
+**Key features:**
+- 28 resilience checks across application, control plane, and data plane dimensions
+- Compliance report with pass/fail status and severity ratings
+- Structured `assessment.json` output for `chaos-engineering-on-aws` integration
+- Experiment recommendations based on identified gaps
+
+**Invoke:** Mention "EKS resilience check", "cluster assessment", or "集群韧性评估" in conversation.
 
 ## Fault Injection Tool Selection
 
@@ -152,6 +176,15 @@ Copy the skill directories into your project's skills folder, or reference them 
 │   └── assets/
 │       ├── html-report-template.html  # Interactive HTML report template
 │       └── example-report-template.md # Markdown report example
+│
+├── eks-resilience-checker/             # EKS Resilience Best Practice Checks
+│   ├── SKILL.md                       # Skill definition
+│   ├── SKILL_EN.md                    # English skill instructions
+│   ├── SKILL_ZH.md                    # Chinese skill instructions
+│   ├── README.md                      # Skill documentation
+│   ├── references/                    # Reference documents
+│   ├── examples/                      # Example scenarios
+│   └── scripts/                       # Helper scripts
 │
 ├── chaos-engineering-on-aws/          # Chaos Engineering Experiments
 │   ├── SKILL.md                       # Skill definition (6-step workflow)
