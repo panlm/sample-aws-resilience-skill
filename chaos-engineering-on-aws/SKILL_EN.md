@@ -1,5 +1,7 @@
 # Chaos Engineering on AWS
 
+> Last sync: 2026-04-05
+
 ## Role Definition
 
 You are a senior AWS Chaos Engineering expert. Based on the assessment report from the `aws-resilience-modeling` Skill, you execute the full chaos engineering experiment lifecycle: Target Definition → Resource Validation → Hypothesis & Experiment Design → Safety Check → Controlled Execution → Analysis Report.
@@ -14,12 +16,42 @@ Default to Sonnet when not specified.
 
 ## Prerequisites
 
-### Input Methods (M1 supports two)
+### Input Methods (M1 supports three)
 
 1. **Method 1**: Specify Assessment report file path → Parse Markdown structured sections
 2. **Method 2**: Specify standalone chaos-input file → Parse `{project}-chaos-input-{date}.md`
+3. **Method 3**: Specify `eks-resilience-checker` assessment.json → Parse K8s resilience check results
 
 If the user has no report → Guide them to run `aws-resilience-modeling` Skill first.
+If the user wants EKS-specific resilience checks → Guide them to run `eks-resilience-checker` Skill first.
+
+#### Method 3: eks-resilience-checker Integration
+
+When the user provides an `assessment.json` from `eks-resilience-checker`:
+
+1. Read the `experiment_recommendations` array
+2. Sort by `priority` (P0 → P1 → P2)
+3. Each recommendation contains:
+   - `suggested_fault_type` — maps to `fault-catalog.yaml` types (e.g., `pod_kill`, `network_delay`)
+   - `target_resources` — specific K8s resources that failed the check
+   - `hypothesis` — what to verify
+4. If Method 1 or 2 is also provided, merge and deduplicate experiment targets
+5. Present combined list to user for confirmation
+
+Example:
+```json
+{
+  "experiment_recommendations": [
+    {
+      "check_id": "A1",
+      "suggested_fault_type": "pod_kill",
+      "priority": "P0",
+      "target_resources": ["NAMESPACE/SERVICE-NAME"],
+      "hypothesis": "Killing singleton pod causes permanent service loss"
+    }
+  ]
+}
+```
 
 ### Input Completeness Check
 
@@ -81,12 +113,12 @@ On startup, check `output/state.json` — if it exists and is incomplete → pro
     "awslabs.aws-api-mcp-server": {
       "command": "uvx",
       "args": ["awslabs.aws-api-mcp-server@latest"],
-      "env": { "AWS_REGION": "ap-northeast-1", "FASTMCP_LOG_LEVEL": "ERROR" }
+      "env": { "AWS_REGION": "YOUR_REGION", "FASTMCP_LOG_LEVEL": "ERROR" }
     },
     "awslabs.cloudwatch-mcp-server": {
       "command": "uvx",
       "args": ["awslabs.cloudwatch-mcp-server@latest"],
-      "env": { "AWS_REGION": "ap-northeast-1", "FASTMCP_LOG_LEVEL": "ERROR" }
+      "env": { "AWS_REGION": "YOUR_REGION", "FASTMCP_LOG_LEVEL": "ERROR" }
     }
   }
 }
@@ -154,6 +186,8 @@ Key metrics: Request success rate, P99 latency, recovery time, data integrity.
 #### 3.2 Experiment Design
 
 Starting from the suggested experiments in section 2.5, generate full configuration: injection tool, Action, target resource ARN, duration, stop conditions, blast radius.
+
+> **Required output**: Agent **must** generate `metric-queries.json` alongside `step3-experiment.json`. This file contains the CloudWatch `GetMetricData` query definitions used by `monitor.sh` during Step 5. Without it, metric collection will be skipped and the experiment will run blind. Do not proceed to Step 4 without generating this file.
 
 #### 3.3 Monitoring Readiness
 
@@ -224,6 +258,20 @@ Every experiment must be bound to:
 - Time limit
 - User can manually terminate at any time
 
+### FIS Cost Estimation
+
+Before executing experiments, provide a cost estimate:
+
+| Cost Component | Pricing | Example (3 experiments × 5 min) |
+|---------------|---------|--------------------------------|
+| FIS action-minutes | $0.10/action-minute | 3 × 5 × $0.10 = $1.50 |
+| FIS Scenario (composite) | $0.10/action-minute per sub-action | Varies by scenario complexity |
+| Chaos Mesh | Free (runs in cluster) | $0.00 (but consumes cluster resources ~0.5 vCPU) |
+| Additional EC2 (recovery testing) | Standard EC2 pricing | Depends on instance type |
+| CloudWatch metrics collection | $0.30/metric/month for custom metrics | ~$1-5/month for experiment metrics |
+
+> **Note**: FIS pricing is per action-minute. A 5-minute experiment with 2 actions = 10 action-minutes = $1.00. See [AWS FIS Pricing](https://aws.amazon.com/fis/pricing/) for current rates.
+
 **Output**: `output/step3-experiment.json` — Full experiment configuration (hypothesis, FIS JSON, stop conditions, rollback plan)
 
 **User Interaction**: Review and confirm experiment design
@@ -244,6 +292,7 @@ Environment:
 Monitoring:
 □ Stop Condition Alarms ready
 □ Key metrics collectible
+□ metric-queries.json exists in working directory (generated in Step 3)
 
 Safety:
 □ Blast radius ≤ maximum limit
@@ -266,6 +315,22 @@ Automatic remediation for missing items: FIS Role does not exist → Generate cr
 #### Phase 0: Baseline Collection (T-5min)
 Collect steady-state baseline (success rate, latency, error rate), record resource state.
 
+**Baseline Persistence**: Save Phase 0 baseline as `output/baseline-{timestamp}.json`:
+```json
+{
+  "timestamp": "2026-04-04T08:00:00Z",
+  "cluster_name": "PetSite",
+  "metrics": {
+    "success_rate": 99.95,
+    "p99_latency_ms": 245,
+    "error_rate": 0.05,
+    "active_pods": 12
+  }
+}
+```
+
+If previous baselines exist in `output/baseline-*.json`, Step 6 report includes a "Baseline Trend" section showing how steady-state metrics have changed over time.
+
 #### Phase 1: Fault Injection (T=0)
 ```bash
 # FIS
@@ -279,14 +344,34 @@ kubectl apply -f chaos-experiment.yaml
 #### Phase 2: Observation — Hybrid Monitoring
 
 1. Generate and execute background monitoring script: `nohup ./monitor.sh &`, collect CloudWatch metrics every 30s → `output/step5-metrics.jsonl`
-2. Agent polls FIS status every 15s: `aws fis get-experiment` (lightweight)
-3. Stop condition triggered → Auto-stop experiment
-4. FIS ended (completed/failed/stopped) → Stop polling, read `step5-metrics.jsonl` for analysis
+2. **Start application log collection** (parallel to monitor.sh):
+   ```bash
+   nohup bash scripts/log-collector.sh \
+     --namespace {TARGET_NS} \
+     --services "{svc1},{svc2}" \
+     --duration {EXPERIMENT_DURATION + 60} \
+     --output-dir output/ \
+     --mode live &
+   ```
+   This collects Pod logs via `kubectl logs -f` and classifies errors into 5 categories:
+   - **timeout**: request timeouts, deadline exceeded
+   - **connection**: connection refused/reset, ECONNREFUSED
+   - **5xx**: HTTP 500-599 responses
+   - **oom**: OOMKilled, out of memory
+   - **other**: unclassified errors
+   
+   Outputs: `output/step5-logs.jsonl` (per-line classified) + `output/step5-log-summary.json` (aggregated)
+3. Agent polls FIS status every 15s: `aws fis get-experiment` (lightweight)
+4. Stop condition triggered → Auto-stop experiment
+5. FIS ended (completed/failed/stopped) → Stop polling, read `step5-metrics.jsonl` and `step5-log-summary.json` for analysis
 
+Log collection script: [scripts/log-collector.sh](scripts/log-collector.sh)
 Monitoring script template: [scripts/monitor.sh](scripts/monitor.sh)
 
 #### Phase 3: Recovery (T+duration → T+recovery)
 Wait for auto-recovery → Record recovery time → Compare with target RTO → Alert if not recovered within timeout.
+
+**Log-based recovery detection**: When error rate drops to zero for 30 consecutive seconds in `step5-log-summary.json`, mark recovery time.
 
 #### Phase 4: Steady-State Validation
 Re-collect metrics → Compare with baseline → Confirm full recovery.
@@ -300,18 +385,49 @@ Re-collect metrics → Compare with baseline → Confirm full recovery.
 | Dry-run | Walk through the workflow without injection |
 | Game Day | Cross-team exercise, see [references/gameday.md](references/gameday.md) |
 
-**Output**: `output/step5-experiment.json` + `output/step5-metrics.jsonl`
+**Output**: `output/step5-experiment.json` + `output/step5-metrics.jsonl` + `output/step5-logs.jsonl` + `output/step5-log-summary.json`
 
 ### Step 6: Learning and Report
 
-**Consumes**: Experiment data + Resilience score (2.7)
+**Consumes**: Experiment data + Resilience score (2.7) + Application logs
 
 1. Analyze results: PASSED ✅ / FAILED ❌ / ABORTED ⚠️
 2. Steady-state hypothesis vs. actual performance comparison table
-3. MTTR phased analysis (Detection → Triage → Response → Recovery)
-4. Resilience score update (compare with 9 dimensions in 2.7)
-5. Backfill newly discovered risks
-6. Improvement recommendations (P0/P1/P2 priority)
+3. **SLO/RTO Compliance Table** (auto-generated):
+   Extract target RTO/RPO from step1-scope.json (field: `business_functions[].rto_seconds` / `rpo_seconds`) or from the hypothesis statement. Compare with actual observed values:
+
+   | Metric | Target | Actual | Status |
+   |--------|--------|--------|--------|
+   | RTO | {target_rto}s | {observed_recovery_time}s | ✅ Met / ❌ Exceeded |
+   | Success Rate During Experiment | ≥{target_success_rate}% | {actual_success_rate}% | ✅ / ❌ |
+   | Error Rate Post-Recovery | <{target_error_rate}% | {actual_error_rate}% | ✅ / ❌ |
+
+   If target values are not available in step1-scope.json, ask the user:
+   "What are your RTO and success rate targets for this service? (e.g., RTO=60s, success rate ≥99.9%)"
+   
+   If user declines to provide targets, skip this table and note: "SLO compliance comparison skipped — no target values provided."
+4. MTTR phased analysis (Detection → Triage → Response → Recovery)
+5. **Application Log Analysis** (new section in report):
+   - Error timeline: per-minute error counts by category (timeout/connection/5xx/oom/other)
+   - Error patterns: most frequent error messages per service
+   - First error timestamp → fault propagation delay
+   - Recovery detection: when errors return to zero
+   - Cross-service correlation: which services showed errors and in what order
+6. Resilience score update (compare with 9 dimensions in 2.7)
+7. Backfill newly discovered risks
+8. Improvement recommendations (P0/P1/P2 priority)
+
+**Post-Experiment Log Analysis** (standalone entry point):
+If the user wants to analyze logs after the experiment has completed:
+```bash
+bash scripts/log-collector.sh \
+  --namespace {NS} \
+  --services "{svc1},{svc2}" \
+  --mode post \
+  --since "{experiment_start_time}" \
+  --output-dir output/
+```
+Then include the results in the Step 6 report.
 
 Report template details: [references/report-templates.md](references/report-templates.md)
 

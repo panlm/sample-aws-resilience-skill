@@ -8,6 +8,22 @@ An AI-powered Agent Skill for running controlled chaos engineering experiments o
 
 This skill enables you to systematically validate system resilience through controlled fault injection using **AWS FIS** and optional **Chaos Mesh**, guided by assessment reports from the `aws-resilience-modeling` skill.
 
+## Installation
+
+**Option A: npx skills (Recommended)**
+```bash
+# Install this skill
+npx skills add aws-samples/sample-aws-resilience-skill --skill chaos-engineering-on-aws
+
+# Install all 4 resilience skills
+npx skills add aws-samples/sample-aws-resilience-skill --skill '*'
+```
+
+**Option B: Git clone**
+```bash
+git clone https://github.com/aws-samples/sample-aws-resilience-skill.git
+```
+
 ## Prerequisites
 
 - Completed assessment report from `aws-resilience-modeling` skill (recommended)
@@ -145,6 +161,14 @@ K8s Pod / Container Layer  →  Chaos Mesh (preferred)
   └── Resources:     StressChaos (cpu/memory)
 ```
 
+## Key Features
+
+- Dual-channel observability: CloudWatch metrics (`monitor.sh`) + application logs (`log-collector.sh`)
+- 5-category error classification (timeout, connection, 5xx, oom, other)
+- AI-guided experiment design with automatic safety validation
+- Progressive fault injection with mandatory stop conditions
+- Multi-tool support: AWS FIS + Chaos Mesh + FIS Scenario Library
+
 ## Safety Principles
 
 - **Mandatory stop conditions**: Every FIS experiment must bind a CloudWatch Alarm
@@ -184,12 +208,34 @@ chaos-engineering-on-aws/
 │   ├── fault-catalog.yaml      # Unified fault type registry (ChaosMesh + FIS + Scenarios)
 │   ├── scenario-library.md     # FIS Scenario Library templates & requirements
 │   ├── prerequisites-checklist.md  # Pre-flight checklist by architecture pattern
+│   ├── emergency-procedures.md # Emergency stop procedures (3-level escalation)
 │   ├── fis-actions.md          # FIS actions reference
 │   ├── chaosmesh-crds.md       # Chaos Mesh CRD reference
 │   ├── report-templates.md     # Report generation templates
 │   └── gameday.md              # Game Day exercise guide
 ├── scripts/
 │   ├── monitor.sh              # Monitoring script template
+│   ├── log-collector.sh        # Pod log collection + error classification
 │   └── setup-prerequisites.sh  # Optional pre-flight setup script
 └── e2e-tests/                  # End-to-end tests
 ```
+
+## Recent Changes
+
+### v1.2.0 — 2026-04-05
+
+**Safety & Operations**
+- `references/emergency-procedures.md` — New: 3-level emergency stop procedures covering FIS, Chaos Mesh, and nuclear CRD deletion option
+- `references/fault-catalog.yaml` — Added `safe_first_run_params` to all 23 fault types (conservative parameters for first-run experiments; `pod_kill` defaults to 1 fixed pod instead of 50%)
+
+**IAM & Permissions**
+- `references/prerequisites-checklist.md` — Added 3-tier FIS IAM Policy templates (Tier 1: EC2 only, Tier 2: +RDS, Tier 3: Full) with Permission Boundary guidance
+
+**Observability & Reliability**
+- `scripts/monitor.sh` — Graceful warning (written to JSONL) when `metric-queries.json` is missing, instead of hard failure
+- `SKILL_EN.md` / `SKILL_ZH.md` — Step 3 now requires Agent to generate `metric-queries.json`; Step 4 pre-flight checklist adds `metric-queries.json` existence check
+
+**Documentation**
+- `references/report-templates.md` — Step 6 report now includes "Cleanup Status" section with checkboxes for FIS templates, Chaos Mesh CRs, and temporary alarms
+- `references/scenario-library.md` — All JSON skeletons stamped with "Last verified: 2026-04-05 against FIS API version 2024-05-01"
+- `SKILL_EN.md` / `SKILL_ZH.md` — Added "Last sync: 2026-04-05" header

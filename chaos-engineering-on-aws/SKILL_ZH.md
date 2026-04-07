@@ -1,5 +1,7 @@
 # AWS 混沌工程
 
+> Last sync: 2026-04-05
+
 ## 角色定位
 
 你是一名资深 AWS 混沌工程专家。基于 `aws-resilience-modeling` Skill 的评估报告，执行完整的混沌工程实验生命周期：目标定义 → 资源验证 → 假设与实验设计 → 安全检查 → 受控执行 → 分析报告。
@@ -14,12 +16,42 @@
 
 ## 前置输入
 
-### 输入方式（M1 支持两种）
+### 输入方式（M1 支持三种）
 
 1. **方式 1**：指定 Assessment 报告文件路径 → 解析 Markdown 结构化章节
 2. **方式 2**：指定独立 chaos-input 文件 → 解析 `{project}-chaos-input-{date}.md`
+3. **方式 3**：指定 `eks-resilience-checker` 的 assessment.json → 解析 K8s 韧性检查结果
 
 如用户无报告 → 引导先运行 `aws-resilience-modeling` Skill。
+如用户需要 EKS 层面韧性检查 → 引导先运行 `eks-resilience-checker` Skill。
+
+#### 方式 3：eks-resilience-checker 集成
+
+当用户提供 `eks-resilience-checker` 的 `assessment.json` 时：
+
+1. 读取 `experiment_recommendations` 数组
+2. 按 `priority` 排序（P0 → P1 → P2）
+3. 每个推荐包含：
+   - `suggested_fault_type` — 对应 `fault-catalog.yaml` 类型（如 `pod_kill`、`network_delay`）
+   - `target_resources` — 检查未通过的具体 K8s 资源
+   - `hypothesis` — 待验证的假设
+4. 如果同时提供了方式 1 或 2，合并去重实验目标
+5. 展示合并后的列表供用户确认
+
+示例：
+```json
+{
+  "experiment_recommendations": [
+    {
+      "check_id": "A1",
+      "suggested_fault_type": "pod_kill",
+      "priority": "P0",
+      "target_resources": ["NAMESPACE/SERVICE-NAME"],
+      "hypothesis": "杀死 singleton pod 导致服务永久不可用"
+    }
+  ]
+}
+```
 
 ### 输入完整性检查
 
@@ -81,12 +113,12 @@ output/
     "awslabs.aws-api-mcp-server": {
       "command": "uvx",
       "args": ["awslabs.aws-api-mcp-server@latest"],
-      "env": { "AWS_REGION": "ap-northeast-1", "FASTMCP_LOG_LEVEL": "ERROR" }
+      "env": { "AWS_REGION": "YOUR_REGION", "FASTMCP_LOG_LEVEL": "ERROR" }
     },
     "awslabs.cloudwatch-mcp-server": {
       "command": "uvx",
       "args": ["awslabs.cloudwatch-mcp-server@latest"],
-      "env": { "AWS_REGION": "ap-northeast-1", "FASTMCP_LOG_LEVEL": "ERROR" }
+      "env": { "AWS_REGION": "YOUR_REGION", "FASTMCP_LOG_LEVEL": "ERROR" }
     }
   }
 }
@@ -154,6 +186,8 @@ output/
 #### 3.2 实验设计
 
 以 2.5 建议实验表为起点，生成完整配置：注入工具、Action、目标资源 ARN、持续时间、停止条件、爆炸半径。
+
+> **必需输出**：Agent **必须** 在生成 `step3-experiment.json` 的同时生成 `metric-queries.json`。该文件包含 `monitor.sh` 在步骤 5 中使用的 CloudWatch `GetMetricData` 查询定义。若缺少此文件，指标采集将被跳过，实验将在"盲视"状态下运行。未生成此文件前不得进入步骤 4。
 
 #### 3.3 监控就绪度
 
@@ -224,6 +258,20 @@ MCP 优先 → 降级为 Schema + CLI：
 - 时间上限
 - 用户可随时手动终止
 
+### FIS 成本估算
+
+执行实验前，提供成本估算：
+
+| 成本项 | 定价 | 示例（3 个实验 × 5 分钟） |
+|--------|------|--------------------------|
+| FIS action-minutes | $0.10/action-minute | 3 × 5 × $0.10 = $1.50 |
+| FIS Scenario（复合） | $0.10/action-minute 每个子 action | 因场景复杂度而异 |
+| Chaos Mesh | 免费（在集群内运行） | $0.00（但消耗集群资源约 0.5 vCPU） |
+| 额外 EC2（恢复测试） | 标准 EC2 定价 | 取决于实例类型 |
+| CloudWatch 指标采集 | $0.30/指标/月（自定义指标） | 实验指标约 $1-5/月 |
+
+> **注意**：FIS 按 action-minute 计费。一个 5 分钟实验含 2 个 action = 10 action-minutes = $1.00。详见 [AWS FIS 定价](https://aws.amazon.com/fis/pricing/)。
+
 **输出**：`output/step3-experiment.json` — 实验完整配置（含假设、FIS JSON、停止条件、回滚方案）
 
 **用户交互**：审查确认实验设计
@@ -244,6 +292,7 @@ MCP 优先 → 降级为 Schema + CLI：
 监控：
 □ Stop Condition Alarm 就绪
 □ 关键指标可采集
+□ metric-queries.json 存在于工作目录（步骤 3 生成）
 
 安全：
 □ 爆炸半径 ≤ 最大限制
@@ -266,6 +315,22 @@ MCP 优先 → 降级为 Schema + CLI：
 #### 阶段 0：基线采集 (T-5min)
 采集稳态基线（成功率、延迟、错误率），记录资源状态。
 
+**基线持久化**：将阶段 0 基线保存为 `output/baseline-{timestamp}.json`：
+```json
+{
+  "timestamp": "2026-04-04T08:00:00Z",
+  "cluster_name": "PetSite",
+  "metrics": {
+    "success_rate": 99.95,
+    "p99_latency_ms": 245,
+    "error_rate": 0.05,
+    "active_pods": 12
+  }
+}
+```
+
+如果 `output/baseline-*.json` 中存在以前的基线，步骤 6 报告将包含"基线趋势"章节，展示稳态指标随时间的变化。
+
 #### 阶段 1：故障注入 (T=0)
 ```bash
 # FIS
@@ -279,14 +344,34 @@ kubectl apply -f chaos-experiment.yaml
 #### 阶段 2：观测 — 混合监控
 
 1. 生成并执行后台监控脚本：`nohup ./monitor.sh &`，每 30s 采集 CloudWatch 指标 → `output/step5-metrics.jsonl`
-2. Agent 每 15s 轮询 FIS 状态：`aws fis get-experiment`（轻量）
-3. 检测到 stop condition 触发 → 自动停止实验
-4. FIS 结束（completed/failed/stopped）→ 停止轮询，读 `step5-metrics.jsonl` 分析
+2. **启动应用日志采集**（与 monitor.sh 并行）：
+   ```bash
+   nohup bash scripts/log-collector.sh \
+     --namespace {TARGET_NS} \
+     --services "{svc1},{svc2}" \
+     --duration {实验时长 + 60} \
+     --output-dir output/ \
+     --mode live &
+   ```
+   通过 `kubectl logs -f` 采集 Pod 日志，自动分类为 5 种错误类型：
+   - **timeout**：请求超时、deadline exceeded
+   - **connection**：连接拒绝/重置、ECONNREFUSED
+   - **5xx**：HTTP 500-599 响应
+   - **oom**：OOMKilled、内存不足
+   - **other**：未分类错误
+   
+   输出：`output/step5-logs.jsonl`（逐行分类）+ `output/step5-log-summary.json`（汇总）
+3. Agent 每 15s 轮询 FIS 状态：`aws fis get-experiment`（轻量）
+4. 检测到 stop condition 触发 → 自动停止实验
+5. FIS 结束（completed/failed/stopped）→ 停止轮询，读 `step5-metrics.jsonl` 和 `step5-log-summary.json` 分析
 
+日志采集脚本：[scripts/log-collector.sh](scripts/log-collector.sh)
 监控脚本模板：[scripts/monitor.sh](scripts/monitor.sh)
 
 #### 阶段 3：恢复 (T+duration → T+recovery)
 等待自动恢复 → 记录恢复时间 → 与目标 RTO 对比 → 超时未恢复告警。
+
+**基于日志的恢复检测**：当 `step5-log-summary.json` 中错误率连续 30 秒降为零时，标记恢复时间。
 
 #### 阶段 4：稳态验证
 重新采集指标 → 与基线对比 → 确认完全恢复。
@@ -300,18 +385,49 @@ kubectl apply -f chaos-experiment.yaml
 | Dry-run | 只走流程不注入 |
 | Game Day | 跨团队演练，参见 [references/gameday_zh.md](references/gameday_zh.md) |
 
-**输出**：`output/step5-experiment.json` + `output/step5-metrics.jsonl`
+**输出**：`output/step5-experiment.json` + `output/step5-metrics.jsonl` + `output/step5-logs.jsonl` + `output/step5-log-summary.json`
 
 ### 步骤 6：学习与报告
 
-**消费**：实验数据 + 韧性评分 (2.7)
+**消费**：实验数据 + 韧性评分 (2.7) + 应用日志
 
 1. 分析结果：PASSED ✅ / FAILED ❌ / ABORTED ⚠️
 2. 稳态假设 vs 实际表现对比表
-3. MTTR 分阶段分析（检测 → 定位 → 修复 → 恢复）
-4. 韧性评分更新（与 2.7 的 9 维度对比）
-5. 新发现风险回填
-6. 改进建议（P0/P1/P2 优先级）
+3. **SLO/RTO 合规表**（自动生成）：
+   从 step1-scope.json 提取目标 RTO/RPO（字段：`business_functions[].rto_seconds` / `rpo_seconds`）或从假设陈述中提取。与实际观测值比较：
+
+   | 指标 | 目标 | 实际 | 状态 |
+   |------|------|------|------|
+   | RTO | {目标RTO}s | {实际恢复时间}s | ✅ 达标 / ❌ 超标 |
+   | 实验期间成功率 | ≥{目标成功率}% | {实际成功率}% | ✅ / ❌ |
+   | 恢复后错误率 | <{目标错误率}% | {实际错误率}% | ✅ / ❌ |
+
+   如果 step1-scope.json 中没有目标值，询问用户：
+   "该服务的 RTO 和成功率目标是什么？（如 RTO=60s，成功率 ≥99.9%）"
+   
+   如用户拒绝提供目标值，跳过此表并注明："SLO 合规对比已跳过 — 未提供目标值。"
+4. MTTR 分阶段分析（检测 → 定位 → 修复 → 恢复）
+5. **应用日志分析**（报告新增章节）：
+   - 错误时间线：按分钟统计各类别错误数（timeout/connection/5xx/oom/other）
+   - 错误模式：每个服务最频繁的错误消息
+   - 首个错误时间戳 → 故障传播延迟
+   - 恢复检测：错误何时归零
+   - 跨服务关联：哪些服务出现错误及其先后顺序
+6. 韧性评分更新（与 2.7 的 9 维度对比）
+7. 新发现风险回填
+8. 改进建议（P0/P1/P2 优先级）
+
+**事后日志分析**（独立入口）：
+如果用户在实验结束后才想分析日志：
+```bash
+bash scripts/log-collector.sh \
+  --namespace {NS} \
+  --services "{svc1},{svc2}" \
+  --mode post \
+  --since "{实验开始时间}" \
+  --output-dir output/
+```
+然后将结果纳入步骤 6 报告。
 
 报告模板详情：[references/report-templates_zh.md](references/report-templates_zh.md)
 
