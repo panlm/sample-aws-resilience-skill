@@ -60,11 +60,30 @@ See [MCP_SETUP_GUIDE.md](references/MCP_SETUP_GUIDE.md) for detailed configurati
 
 ## Analysis Workflow
 
+### Pre-requisite: MCP Environment Detection
+
+Before starting the analysis, you **must** first check the current MCP server configuration:
+
+1. **Detect installed MCPs**: Use `/mcp` or `claude mcp list` to view currently configured MCP servers
+2. **Compare with required MCPs**: Check the installed list against the required servers listed in "MCP Server Requirements" above (`aws-api-mcp-server`, `cloudwatch-mcp-server`)
+3. **Verify configuration parameters**: Confirm that the `AWS_REGION` and `AWS_PROFILE` of installed MCPs match the user's target account/region for this assessment
+4. **Handle results**:
+   - **Required MCPs missing**: Show the user which MCPs are missing and provide installation commands (see [MCP_SETUP_GUIDE.md](references/MCP_SETUP_GUIDE.md)). Wait for the user to install them before proceeding
+   - **MCPs installed but misconfigured** (e.g., Region/Profile doesn't match target): Prompt the user to reconfigure or add new MCP instances for the target environment
+   - **Non-required MCPs present**: Ignore unrelated MCPs; only use the AWS MCP servers specified by this Skill for scanning
+   - **All required MCPs properly configured**: Proceed to the next step
+
+> **Important**: Do not use non-AWS-official MCP servers already on the user's system for resource scanning. You must use the `awslabs.*-mcp-server` series specified above.
+
+---
+
+### Information Collection
+
 Before starting the analysis, ask the user the following key information:
 
 1. **Environment Information Collection**:
    - Has the user prepared an environment description document?
-   - Should AWS CLI/API be used to scan the environment?
+   - Should MCP servers be used to automatically scan the AWS environment? (Confirm MCPs were configured in the pre-requisite step)
    - Is access to the AWS Management Console available?
 
 2. **Business Context**:
