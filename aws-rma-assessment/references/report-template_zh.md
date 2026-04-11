@@ -234,21 +234,68 @@ graph TD
 
 ---
 
-## HTML报告生成（可选）
+## HTML报告生成
 
-如果用户需要HTML版本，使用pandoc转换：
+生成 Markdown 报告后，**默认同时生成**交互式 HTML 报告。
+
+**推荐方法：使用交互式HTML模板**
+
+使用预制的美观HTML模板（`../assets/html-report-template_zh.html`），该模板包含：
+- AWS品牌设计风格（橙色主题）
+- Chart.js交互式图表（雷达图、甜甜圈图、柱状图、散点图）
+- 响应式设计，支持移动端和打印
+- 风险卡片颜色编码
+
+**生成步骤**：
+
+使用 Write 工具，参考 `assets/html-report-template_zh.html` 的结构，将评估数据填充到 HTML 中：
+
+```python
+# 数据填充示例
+assessment_data = {
+    "projectName": "{应用名称}",
+    "assessmentDate": "{评估日期}",
+    "overallScore": {总体评分百分比},
+
+    # 10个领域的成熟度评分
+    "domainScores": {
+        "recoveryObjectives": {恢复目标评分},
+        "observability": {可观察性评分},
+        "disasterRecovery": {灾难恢复评分},
+        "highAvailability": {高可用性评分},
+        "changeManagement": {变更管理评分},
+        "incidentManagement": {事件管理评分},
+        "operationalReviews": {运营评审评分},
+        "chaosEngineering": {混沌工程评分},
+        "gameDays": {游戏日评分},
+        "organizationalLearning": {组织学习评分}
+    },
+
+    # 风险分布
+    "riskDistribution": {
+        "high": {高风险数},
+        "medium": {中风险数},
+        "low": {低风险数}
+    },
+
+    # 关键发现和改进建议
+    "keyFindings": [...],
+    "improvementRoadmap": [...]
+}
+```
+
+将以上数据填充到 HTML 模板的对应占位符中，生成文件：`{application-name}-rma-assessment-{date}.html`
+
+**备选方法：使用 pandoc 基础转换**
 
 ```bash
-# 检查pandoc是否可用
-if command -v pandoc &> /dev/null; then
-    pandoc {report-file}.md \
-      -f gfm \
-      -t html5 \
-      --standalone \
-      --toc \
-      --toc-depth=3 \
-      --css=https://cdn.jsdelivr.net/npm/github-markdown-css@5/github-markdown.min.css \
-      --metadata title="RMA 韧性评估报告" \
-      -o {report-file}.html
-fi
+pandoc {report-file}.md \
+  -f gfm \
+  -t html5 \
+  --standalone \
+  --toc \
+  --toc-depth=3 \
+  --css=https://cdn.jsdelivr.net/npm/github-markdown-css@5/github-markdown.min.css \
+  --metadata title="RMA 韧性评估报告" \
+  -o {report-file}-basic.html
 ```

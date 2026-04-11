@@ -234,21 +234,68 @@ This assessment should be paired with `aws-resilience-modeling` for a complete r
 
 ---
 
-## HTML Report Generation (Optional)
+## HTML Report Generation
 
-If the user needs an HTML version, use pandoc to convert:
+After generating the Markdown report, **also generate by default** an interactive HTML report.
+
+**Recommended Method: Using the Interactive HTML Template**
+
+Use the pre-built HTML template (`../assets/html-report-template.html`), which includes:
+- AWS brand design style (orange theme)
+- Chart.js interactive charts (radar, doughnut, bar, scatter)
+- Responsive design supporting mobile and print
+- Color-coded risk cards
+
+**Generation Steps**:
+
+Use the Write tool, referencing the `assets/html-report-template.html` structure, to populate assessment data into the HTML:
+
+```python
+# Data population example
+assessment_data = {
+    "projectName": "{application name}",
+    "assessmentDate": "{assessment date}",
+    "overallScore": {overall score percentage},
+
+    # 10 domain maturity scores
+    "domainScores": {
+        "recoveryObjectives": {recovery objectives score},
+        "observability": {observability score},
+        "disasterRecovery": {disaster recovery score},
+        "highAvailability": {high availability score},
+        "changeManagement": {change management score},
+        "incidentManagement": {incident management score},
+        "operationalReviews": {operational reviews score},
+        "chaosEngineering": {chaos engineering score},
+        "gameDays": {game days score},
+        "organizationalLearning": {organizational learning score}
+    },
+
+    # Risk distribution
+    "riskDistribution": {
+        "high": {high risk count},
+        "medium": {medium risk count},
+        "low": {low risk count}
+    },
+
+    # Key findings and improvement recommendations
+    "keyFindings": [...],
+    "improvementRoadmap": [...]
+}
+```
+
+Populate the above data into the corresponding placeholders in the HTML template, generating file: `{application-name}-rma-assessment-{date}.html`
+
+**Alternative Method: Basic Conversion with Pandoc**
 
 ```bash
-# Check if pandoc is available
-if command -v pandoc &> /dev/null; then
-    pandoc {report-file}.md \
-      -f gfm \
-      -t html5 \
-      --standalone \
-      --toc \
-      --toc-depth=3 \
-      --css=https://cdn.jsdelivr.net/npm/github-markdown-css@5/github-markdown.min.css \
-      --metadata title="RMA Resilience Assessment Report" \
-      -o {report-file}.html
-fi
+pandoc {report-file}.md \
+  -f gfm \
+  -t html5 \
+  --standalone \
+  --toc \
+  --toc-depth=3 \
+  --css=https://cdn.jsdelivr.net/npm/github-markdown-css@5/github-markdown.min.css \
+  --metadata title="RMA Resilience Assessment Report" \
+  -o {report-file}-basic.html
 ```

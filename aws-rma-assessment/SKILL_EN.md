@@ -269,10 +269,17 @@ AWS Resilience Hub provides automated technical resilience assessment for AWS ap
 
 See [report-template.md](references/report-template.md) for detailed report template structure and HTML generation methods.
 
-### Step 7: Generate HTML Report (Optional)
+### Step 7: Generate HTML Report
 
-If the user needs an HTML version, use pandoc to convert the Markdown report.
-See [report-template.md](references/report-template.md) for conversion commands and configuration.
+After generating the Markdown report, **also generate by default** an interactive HTML report. Use the pre-built HTML template (English: `assets/html-report-template.html`, Chinese: `assets/html-report-template_zh.html`), which includes:
+- AWS brand design style (orange theme)
+- Chart.js interactive charts (radar, doughnut, bar, scatter)
+- Responsive design supporting mobile and print
+- Color-coded risk cards
+
+**Generation method**: Use the Write tool, based on the `assets/html-report-template.html` template structure, populate the assessment data into the HTML, and generate the `{application-name}-rma-assessment-{date}.html` file.
+
+See [report-template.md](references/report-template.md) for detailed data population steps and template usage.
 
 ---
 
