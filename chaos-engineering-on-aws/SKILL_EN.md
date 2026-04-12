@@ -76,14 +76,22 @@ File-as-state approach — each step's output serves as a checkpoint:
 
 ```
 output/
-├── step1-scope.json          # Target system, resource inventory
-├── step2-assessment.json     # Weak points, experiment recommendations
-├── step3-experiment.json     # FIS experiment template definition
-├── step4-validation.json     # Pre-flight checks, user confirmation
-├── step5-metrics.jsonl       # Monitoring script streaming metrics
-├── step5-experiment.json     # FIS experiment state, ID, timeline
+├── checkpoints/
+│   ├── step1-scope.json          # Target system, resource inventory
+│   ├── step2-assessment.json     # Weak points, experiment recommendations
+│   ├── step3-experiment.json     # FIS experiment template definition
+│   ├── step4-validation.json     # Pre-flight checks, user confirmation
+│   └── step5-experiment.json     # FIS experiment state, ID, timeline
+├── monitoring/
+│   ├── step5-metrics.jsonl       # Monitoring script streaming metrics
+│   ├── step5-logs.jsonl          # Raw application log JSONL
+│   ├── step5-log-summary.json    # Classified log summary
+│   ├── metric-queries.json       # CloudWatch metric query definitions
+│   └── experiment_id.txt         # FIS experiment ID
+├── templates/                    # Generated FIS / Chaos Mesh templates
 ├── step6-report.md           # Final report (Markdown)
 ├── step6-report.html         # Final report (HTML, inline CSS)
+├── baseline-{timestamp}.json # Steady-state baseline snapshots
 └── state.json                # Progress metadata
 ```
 
@@ -145,7 +153,7 @@ Detailed setup guide: [MCP_SETUP_GUIDE.md](MCP_SETUP_GUIDE.md)
 5. Confirm scope and priorities with the user
 6. Detect Chaos Mesh: `kubectl get crd | grep chaos-mesh` — if installed, include CM scenarios in recommendations
 
-**Output**: `output/step1-scope.json` — Selected experiment target list
+**Output**: `output/checkpoints/step1-scope.json` — Selected experiment target list
 
 **User Interaction**: Confirm experiment targets, environment, and time window
 
@@ -164,7 +172,7 @@ Detailed setup guide: [MCP_SETUP_GUIDE.md](MCP_SETUP_GUIDE.md)
 4. Calculate blast radius (based on dependency chains in 2.3)
 5. Label resource roles: `Injection Target` / `Observation Target` / `Impact Target`
 
-**Output**: `output/step2-assessment.json` — Validated resource list + blast radius analysis
+**Output**: `output/checkpoints/step2-assessment.json` — Validated resource list + blast radius analysis
 
 **User Interaction**: Confirm blast radius is acceptable; ARN failure → update or skip
 
@@ -187,7 +195,7 @@ Key metrics: Request success rate, P99 latency, recovery time, data integrity.
 
 Starting from the suggested experiments in section 2.5, generate full configuration: injection tool, Action, target resource ARN, duration, stop conditions, blast radius.
 
-> **Required output**: Agent **must** generate `metric-queries.json` alongside `step3-experiment.json`. This file contains the CloudWatch `GetMetricData` query definitions used by `monitor.sh` during Step 5. Without it, metric collection will be skipped and the experiment will run blind. Do not proceed to Step 4 without generating this file.
+> **Required output**: Agent **must** generate `output/monitoring/metric-queries.json` alongside `output/checkpoints/step3-experiment.json`. This file contains the CloudWatch `GetMetricData` query definitions used by `monitor.sh` during Step 5. Without it, metric collection will be skipped and the experiment will run blind. Do not proceed to Step 4 without generating this file.
 
 #### 3.3 Monitoring Readiness
 
@@ -272,7 +280,7 @@ Before executing experiments, provide a cost estimate:
 
 > **Note**: FIS pricing is per action-minute. A 5-minute experiment with 2 actions = 10 action-minutes = $1.00. See [AWS FIS Pricing](https://aws.amazon.com/fis/pricing/) for current rates.
 
-**Output**: `output/step3-experiment.json` — Full experiment configuration (hypothesis, FIS JSON, stop conditions, rollback plan)
+**Output**: `output/checkpoints/step3-experiment.json` — Full experiment configuration (hypothesis, FIS JSON, stop conditions, rollback plan). Save generated FIS template JSON and Chaos Mesh YAML files to `output/templates/`.
 
 **User Interaction**: Review and confirm experiment design
 
@@ -292,7 +300,7 @@ Environment:
 Monitoring:
 □ Stop Condition Alarms ready
 □ Key metrics collectible
-□ metric-queries.json exists in working directory (generated in Step 3)
+□ output/monitoring/metric-queries.json exists (generated in Step 3)
 
 Safety:
 □ Blast radius ≤ maximum limit
@@ -306,7 +314,7 @@ Team:
 
 Automatic remediation for missing items: FIS Role does not exist → Generate creation command for user confirmation; Alarm does not exist → Generate `put-metric-alarm` command; Monitoring 🔴 → Block.
 
-**Output**: `output/step4-validation.json` — Check results (PASS/FAIL + remediation commands)
+**Output**: `output/checkpoints/step4-validation.json` — Check results (PASS/FAIL + remediation commands)
 
 **User Interaction**: Proceed only when all PASS; Final confirmation: "Ready to start the experiment?"
 
@@ -331,42 +339,76 @@ Collect steady-state baseline (success rate, latency, error rate), record resour
 
 If previous baselines exist in `output/baseline-*.json`, Step 6 report includes a "Baseline Trend" section showing how steady-state metrics have changed over time.
 
-#### Phase 1: Fault Injection (T=0)
-```bash
-# FIS
-aws fis create-experiment-template --cli-input-json file://experiment.json
-aws fis start-experiment --experiment-template-id <id>
+#### Phase 1: Fault Injection + Observation (automated)
 
-# Chaos Mesh (if selected)
-kubectl apply -f chaos-experiment.yaml
+> ⚠️ **CRITICAL**: Do NOT poll experiment status in the agent loop. Use the `experiment-runner.sh` script which handles injection, polling, timeout, and state file output in a single background process. This prevents context window exhaustion and agent hangs.
+
+**Launch all three background processes, then wait for experiment-runner.sh to finish:**
+
+```bash
+# 1. Create FIS template (if not already created)
+TEMPLATE_ID=$(aws fis create-experiment-template --cli-input-json file://experiment.json \
+  --region {REGION} --query 'experimentTemplate.id' --output text)
+
+# 2. Start experiment runner (handles injection + polling + timeout)
+#    FIS mode:
+nohup bash scripts/experiment-runner.sh \
+  --mode fis \
+  --template-id "$TEMPLATE_ID" \
+  --region {REGION} \
+  --timeout {EXPERIMENT_DURATION + 120} \
+  --poll-interval 15 \
+  --output-dir output/ &
+RUNNER_PID=$!
+
+#    OR Chaos Mesh mode:
+# nohup bash scripts/experiment-runner.sh \
+#   --mode chaosmesh \
+#   --manifest chaos-experiment.yaml \
+#   --namespace {NAMESPACE} \
+#   --timeout {EXPERIMENT_DURATION + 120} \
+#   --output-dir output/ &
+# RUNNER_PID=$!
+
+# 3. Start metric monitoring (background)
+export EXPERIMENT_ID=$(cat output/monitoring/experiment_id.txt 2>/dev/null || echo "pending")
+export REGION={REGION}
+export NAMESPACE={CW_NAMESPACE}
+nohup bash ./monitor.sh &
+
+# 4. Start log collection (background, parallel to monitor)
+nohup bash scripts/log-collector.sh \
+  --namespace {TARGET_NS} \
+  --services "{svc1},{svc2}" \
+  --duration {EXPERIMENT_DURATION + 120} \
+  --output-dir output/ \
+  --mode live &
+
+# 5. Wait for experiment runner to finish (blocks until done/timeout)
+wait $RUNNER_PID
+RUNNER_EXIT=$?
 ```
 
-#### Phase 2: Observation — Hybrid Monitoring
+**After `wait` returns**, read the results:
+- `output/checkpoints/step5-experiment.json` — experiment status (completed/failed/timeout)
+- `output/monitoring/step5-metrics.jsonl` — collected CloudWatch metrics
+- `output/monitoring/step5-log-summary.json` — classified application log summary
+- `output/experiment-runner.log` — detailed execution log
 
-1. Generate and execute background monitoring script: `nohup ./monitor.sh &`, collect CloudWatch metrics every 30s → `output/step5-metrics.jsonl`
-2. **Start application log collection** (parallel to monitor.sh):
-   ```bash
-   nohup bash scripts/log-collector.sh \
-     --namespace {TARGET_NS} \
-     --services "{svc1},{svc2}" \
-     --duration {EXPERIMENT_DURATION + 60} \
-     --output-dir output/ \
-     --mode live &
-   ```
-   This collects Pod logs via `kubectl logs -f` and classifies errors into 5 categories:
-   - **timeout**: request timeouts, deadline exceeded
-   - **connection**: connection refused/reset, ECONNREFUSED
-   - **5xx**: HTTP 500-599 responses
-   - **oom**: OOMKilled, out of memory
-   - **other**: unclassified errors
-   
-   Outputs: `output/step5-logs.jsonl` (per-line classified) + `output/step5-log-summary.json` (aggregated)
-3. Agent polls FIS status every 15s: `aws fis get-experiment` (lightweight)
-4. Stop condition triggered → Auto-stop experiment
-5. FIS ended (completed/failed/stopped) → Stop polling, read `step5-metrics.jsonl` and `step5-log-summary.json` for analysis
+**Exit codes**: 0=completed, 1=failed, 2=timeout
 
-Log collection script: [scripts/log-collector.sh](scripts/log-collector.sh)
-Monitoring script template: [scripts/monitor.sh](scripts/monitor.sh)
+**Timeout handling**: If runner exits with code 2 (timeout), the experiment was auto-stopped. Report this as an abnormal termination in Step 6.
+
+#### Phase 2: Log Classification
+
+Application logs are classified into 5 categories by `log-collector.sh`:
+- **timeout**: request timeouts, deadline exceeded
+- **connection**: connection refused/reset, ECONNREFUSED
+- **5xx**: HTTP 500-599 responses
+- **oom**: OOMKilled, out of memory
+- **other**: unclassified errors
+
+Scripts: [scripts/experiment-runner.sh](scripts/experiment-runner.sh) | [scripts/log-collector.sh](scripts/log-collector.sh) | [scripts/monitor.sh](scripts/monitor.sh)
 
 #### Phase 3: Recovery (T+duration → T+recovery)
 Wait for auto-recovery → Record recovery time → Compare with target RTO → Alert if not recovered within timeout.
@@ -385,13 +427,83 @@ Re-collect metrics → Compare with baseline → Confirm full recovery.
 | Dry-run | Walk through the workflow without injection |
 | Game Day | Cross-team exercise, see [references/gameday.md](references/gameday.md) |
 
-**Output**: `output/step5-experiment.json` + `output/step5-metrics.jsonl` + `output/step5-logs.jsonl` + `output/step5-log-summary.json`
+**Output**: `output/checkpoints/step5-experiment.json` + `output/monitoring/step5-metrics.jsonl` + `output/monitoring/step5-logs.jsonl` + `output/monitoring/step5-log-summary.json`
 
 ### Step 6: Learning and Report
 
 **Consumes**: Experiment data + Resilience score (2.7) + Application logs
 
-1. Analyze results: PASSED ✅ / FAILED ❌ / ABORTED ⚠️
+#### 6.0 Result Verification (MANDATORY — do this FIRST)
+
+> ⚠️ **CRITICAL**: Before writing any report, verify the actual FIS experiment status from AWS. Do NOT infer pass/fail from metrics alone.
+
+For **every** experiment executed, query the actual status:
+```bash
+aws fis get-experiment --id {EXPERIMENT_ID} --region {REGION} \
+  --query 'experiment.state.{status:status,reason:reason}' --output json
+```
+
+**Result mapping rules (non-negotiable)**:
+| FIS `state.status` | Report Result | Notes |
+|---------------------|---------------|-------|
+| `completed` | Check hypothesis → PASSED ✅ or FAILED ❌ | `completed` only means FIS finished execution, NOT that the system passed the test. Still must verify hypothesis thresholds. |
+| `failed` | **FAILED ❌** | FIS itself failed (bad template, permission error, etc.) — always FAILED |
+| `stopped` | **ABORTED ⚠️** | Manually stopped or stop-condition triggered |
+| `cancelled` | **ABORTED ⚠️** | Cancelled before completion |
+
+**For `completed` experiments**, additionally check:
+1. Was the steady-state hypothesis violated? (success rate, latency, error rate vs. thresholds)
+2. Did recovery time exceed target RTO?
+3. If hypothesis violated OR RTO exceeded → **FAILED ❌** (even though FIS status is `completed`)
+
+**Cross-validation**: Compare `output/checkpoints/step5-experiment.json` status with `aws fis get-experiment` result. If they disagree, trust the AWS API result.
+
+#### Chaos Mesh Result Verification
+
+For **every** Chaos Mesh experiment executed, query the actual status from the cluster:
+```bash
+# Get experiment status (replace KIND with: podchaos, networkchaos, httpchaos, stresschaos, iochaos, etc.)
+kubectl get {KIND} {EXPERIMENT_NAME} -n {NAMESPACE} -o jsonpath='{.status.conditions}' | jq .
+```
+
+**Key status conditions to check**:
+| Condition | Value | Meaning |
+|-----------|-------|---------|
+| `AllInjected` | `True` | Fault was successfully injected into all targets |
+| `AllInjected` | `False` | Fault injection failed (partial or complete) |
+| `AllRecovered` | `True` | All targets recovered after experiment |
+| `AllRecovered` | `False` | Recovery incomplete |
+| `Paused` | `True` | Experiment was paused |
+
+**Chaos Mesh result mapping rules**:
+| Scenario | Report Result | Notes |
+|----------|---------------|-------|
+| `AllInjected=True` + `AllRecovered=True` | Check hypothesis → PASSED ✅ or FAILED ❌ | Experiment ran correctly; judge by system behavior |
+| `AllInjected=False` | **FAILED ❌** | Fault injection itself failed (selector mismatch, RBAC, etc.) |
+| `AllRecovered=False` (after timeout) | **FAILED ❌** | System did not recover — critical finding |
+| Experiment CR not found | **ABORTED ⚠️** | Experiment was deleted or never created |
+
+**Additional checks** (run after experiment completes):
+```bash
+# Verify no chaos resources leaked (should be empty after cleanup)
+kubectl get podchaos,networkchaos,httpchaos,stresschaos,iochaos -n {NAMESPACE} 2>/dev/null
+
+# Check events for injection failures
+kubectl describe {KIND} {EXPERIMENT_NAME} -n {NAMESPACE} | grep -A5 "Events:"
+```
+
+**For `AllInjected=True` + `AllRecovered=True` experiments**, additionally check:
+1. Was the steady-state hypothesis violated during injection? (same as FIS)
+2. Did recovery time exceed target RTO?
+3. If hypothesis violated OR RTO exceeded → **FAILED ❌**
+
+#### Result Summary
+```
+Total: {N} = Passed: {P} + Failed: {F} + Aborted: {A}
+```
+Each experiment ID must appear in the detailed results table with its actual status.
+
+#### 6.1 Analysis
 2. Steady-state hypothesis vs. actual performance comparison table
 3. **SLO/RTO Compliance Table** (auto-generated):
    Extract target RTO/RPO from step1-scope.json (field: `business_functions[].rto_seconds` / `rpo_seconds`) or from the hypothesis statement. Compare with actual observed values:

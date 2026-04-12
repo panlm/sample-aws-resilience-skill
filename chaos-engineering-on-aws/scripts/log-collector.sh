@@ -69,9 +69,9 @@ fi
 # ---------------------------------------------------------------------------
 # Output setup
 # ---------------------------------------------------------------------------
-mkdir -p "$OUTPUT_DIR"
-LOGS_FILE="$OUTPUT_DIR/step5-logs.jsonl"
-SUMMARY_FILE="$OUTPUT_DIR/step5-log-summary.json"
+mkdir -p "$OUTPUT_DIR" "$OUTPUT_DIR/monitoring"
+LOGS_FILE="$OUTPUT_DIR/monitoring/step5-logs.jsonl"
+SUMMARY_FILE="$OUTPUT_DIR/monitoring/step5-log-summary.json"
 INTERNAL_FILE=$(mktemp "${OUTPUT_DIR}/.log-collector-XXXXXX.jsonl")
 : > "$LOGS_FILE"
 : > "$INTERNAL_FILE"

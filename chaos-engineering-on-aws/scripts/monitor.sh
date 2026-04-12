@@ -17,7 +17,7 @@ set -euo pipefail
 EXPERIMENT_ID="${EXPERIMENT_ID:?'EXPERIMENT_ID not set'}"
 NAMESPACE="${NAMESPACE:?'NAMESPACE not set'}"
 REGION="${REGION:?'REGION not set — pass AWS_DEFAULT_REGION or set REGION env var'}"
-OUTPUT_FILE="${OUTPUT_FILE:-output/step5-metrics.jsonl}"
+OUTPUT_FILE="${OUTPUT_FILE:-output/monitoring/step5-metrics.jsonl}"
 INTERVAL="${INTERVAL:-30}"
 
 # Custom metrics support
@@ -49,15 +49,15 @@ while true; do
     START_TIME=$(date -u -d "-${INTERVAL} seconds" +%FT%TZ 2>/dev/null || date -u -v-${INTERVAL}S +%FT%TZ)
 
     # Agent fills in specific metric queries at generation time
-    if [[ ! -f "metric-queries.json" ]]; then
-        echo "{\"ts\":\"$TIMESTAMP\",\"type\":\"warning\",\"message\":\"metric-queries.json not found — skipping CloudWatch metric collection for this interval\"}" >> "$OUTPUT_FILE"
+    if [[ ! -f "output/monitoring/metric-queries.json" ]]; then
+        echo "{\"ts\":\"$TIMESTAMP\",\"type\":\"warning\",\"message\":\"output/monitoring/metric-queries.json not found — skipping CloudWatch metric collection for this interval\"}" >> "$OUTPUT_FILE"
         METRICS_JSON='{"MetricDataResults":[]}'
     else
         METRICS_JSON=$(aws cloudwatch get-metric-data \
             --region "$REGION" \
             --start-time "$START_TIME" \
             --end-time "$END_TIME" \
-            --metric-data-queries file://metric-queries.json \
+            --metric-data-queries file://output/monitoring/metric-queries.json \
             --output json 2>/dev/null || echo '{"MetricDataResults":[]}')
     fi
 

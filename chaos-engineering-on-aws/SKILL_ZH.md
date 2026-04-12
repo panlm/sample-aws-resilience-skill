@@ -76,14 +76,22 @@
 
 ```
 output/
-├── step1-scope.json          # 目标系统、资源清单
-├── step2-assessment.json     # 薄弱点、实验推荐
-├── step3-experiment.json     # FIS 实验模板定义
-├── step4-validation.json     # 前置检查、用户确认
-├── step5-metrics.jsonl       # 监控脚本流式指标
-├── step5-experiment.json     # FIS 实验状态、ID、时间线
+├── checkpoints/
+│   ├── step1-scope.json          # 目标系统、资源清单
+│   ├── step2-assessment.json     # 薄弱点、实验推荐
+│   ├── step3-experiment.json     # FIS 实验模板定义
+│   ├── step4-validation.json     # 前置检查、用户确认
+│   └── step5-experiment.json     # FIS 实验状态、ID、时间线
+├── monitoring/
+│   ├── step5-metrics.jsonl       # 监控脚本流式指标
+│   ├── step5-logs.jsonl          # 原始应用日志 JSONL
+│   ├── step5-log-summary.json    # 分类日志摘要
+│   ├── metric-queries.json       # CloudWatch 指标查询定义
+│   └── experiment_id.txt         # FIS 实验 ID
+├── templates/                    # 动态生成的 FIS / Chaos Mesh 模板
 ├── step6-report.md           # 最终报告（Markdown）
 ├── step6-report.html         # 最终报告（HTML，内联 CSS）
+├── baseline-{timestamp}.json # 稳态基线快照
 └── state.json                # 进度元数据
 ```
 
@@ -145,7 +153,7 @@ output/
 5. 与用户确认范围和优先级
 6. 检测 Chaos Mesh：`kubectl get crd | grep chaos-mesh` — 已安装则在推荐中包含 CM 场景
 
-**输出**：`output/step1-scope.json` — 选定的实验目标列表
+**输出**：`output/checkpoints/step1-scope.json` — 选定的实验目标列表
 
 **用户交互**：确认实验目标、环境、时间窗口
 
@@ -164,7 +172,7 @@ output/
 4. 计算爆炸半径（基于 2.3 的依赖链）
 5. 标记资源角色：`注入目标` / `观测对象` / `影响对象`
 
-**输出**：`output/step2-assessment.json` — 验证后资源清单 + 爆炸半径分析
+**输出**：`output/checkpoints/step2-assessment.json` — 验证后资源清单 + 爆炸半径分析
 
 **用户交互**：确认爆炸半径可接受；ARN 失败 → 更新或跳过
 
@@ -187,7 +195,7 @@ output/
 
 以 2.5 建议实验表为起点，生成完整配置：注入工具、Action、目标资源 ARN、持续时间、停止条件、爆炸半径。
 
-> **必需输出**：Agent **必须** 在生成 `step3-experiment.json` 的同时生成 `metric-queries.json`。该文件包含 `monitor.sh` 在步骤 5 中使用的 CloudWatch `GetMetricData` 查询定义。若缺少此文件，指标采集将被跳过，实验将在"盲视"状态下运行。未生成此文件前不得进入步骤 4。
+> **必需输出**：Agent **必须** 在生成 `output/checkpoints/step3-experiment.json` 的同时生成 `output/monitoring/metric-queries.json`。该文件包含 `monitor.sh` 在步骤 5 中使用的 CloudWatch `GetMetricData` 查询定义。若缺少此文件，指标采集将被跳过，实验将在"盲视"状态下运行。未生成此文件前不得进入步骤 4。
 
 #### 3.3 监控就绪度
 
@@ -272,7 +280,7 @@ MCP 优先 → 降级为 Schema + CLI：
 
 > **注意**：FIS 按 action-minute 计费。一个 5 分钟实验含 2 个 action = 10 action-minutes = $1.00。详见 [AWS FIS 定价](https://aws.amazon.com/fis/pricing/)。
 
-**输出**：`output/step3-experiment.json` — 实验完整配置（含假设、FIS JSON、停止条件、回滚方案）
+**输出**：`output/checkpoints/step3-experiment.json` — 实验完整配置（含假设、FIS JSON、停止条件、回滚方案）。生成的 FIS 模板 JSON 和 Chaos Mesh YAML 文件保存至 `output/templates/`。
 
 **用户交互**：审查确认实验设计
 
@@ -292,7 +300,7 @@ MCP 优先 → 降级为 Schema + CLI：
 监控：
 □ Stop Condition Alarm 就绪
 □ 关键指标可采集
-□ metric-queries.json 存在于工作目录（步骤 3 生成）
+□ output/monitoring/metric-queries.json 存在（步骤 3 生成）
 
 安全：
 □ 爆炸半径 ≤ 最大限制
@@ -306,7 +314,7 @@ MCP 优先 → 降级为 Schema + CLI：
 
 缺失自动处理：FIS Role 不存在 → 生成创建命令供用户确认；Alarm 不存在 → 生成 `put-metric-alarm` 命令；监控 🔴 → 阻断。
 
-**输出**：`output/step4-validation.json` — 检查结果（PASS/FAIL + 修复命令）
+**输出**：`output/checkpoints/step4-validation.json` — 检查结果（PASS/FAIL + 修复命令）
 
 **用户交互**：全 PASS 才继续；最终确认："准备好开始实验了吗？"
 
@@ -332,41 +340,76 @@ MCP 优先 → 降级为 Schema + CLI：
 如果 `output/baseline-*.json` 中存在以前的基线，步骤 6 报告将包含"基线趋势"章节，展示稳态指标随时间的变化。
 
 #### 阶段 1：故障注入 (T=0)
-```bash
-# FIS
-aws fis create-experiment-template --cli-input-json file://experiment.json
-aws fis start-experiment --experiment-template-id <id>
+#### 阶段 1：故障注入 + 观测（自动化）
 
-# Chaos Mesh（如选用）
-kubectl apply -f chaos-experiment.yaml
+> ⚠️ **关键**：不要在 agent 循环中轮询实验状态。使用 `experiment-runner.sh` 脚本，它在单个后台进程中完成注入、轮询、超时和状态文件输出。避免上下文窗口耗尽和 agent 挂起。
+
+**启动三个后台进程，然后等待 experiment-runner.sh 完成：**
+
+```bash
+# 1. 创建 FIS 模板（如果还没创建）
+TEMPLATE_ID=$(aws fis create-experiment-template --cli-input-json file://experiment.json \
+  --region {REGION} --query 'experimentTemplate.id' --output text)
+
+# 2. 启动实验运行器（处理注入 + 轮询 + 超时）
+#    FIS 模式：
+nohup bash scripts/experiment-runner.sh \
+  --mode fis \
+  --template-id "$TEMPLATE_ID" \
+  --region {REGION} \
+  --timeout {实验时长 + 120} \
+  --poll-interval 15 \
+  --output-dir output/ &
+RUNNER_PID=$!
+
+#    或 Chaos Mesh 模式：
+# nohup bash scripts/experiment-runner.sh \
+#   --mode chaosmesh \
+#   --manifest chaos-experiment.yaml \
+#   --namespace {NAMESPACE} \
+#   --timeout {实验时长 + 120} \
+#   --output-dir output/ &
+# RUNNER_PID=$!
+
+# 3. 启动指标监控（后台）
+export EXPERIMENT_ID=$(cat output/monitoring/experiment_id.txt 2>/dev/null || echo "pending")
+export REGION={REGION}
+export NAMESPACE={CW_NAMESPACE}
+nohup bash ./monitor.sh &
+
+# 4. 启动日志采集（后台，与 monitor 并行）
+nohup bash scripts/log-collector.sh \
+  --namespace {TARGET_NS} \
+  --services "{svc1},{svc2}" \
+  --duration {实验时长 + 120} \
+  --output-dir output/ \
+  --mode live &
+
+# 5. 等待实验运行器完成（阻塞直到完成/超时）
+wait $RUNNER_PID
+RUNNER_EXIT=$?
 ```
 
-#### 阶段 2：观测 — 混合监控
+**`wait` 返回后**，读取结果：
+- `output/checkpoints/step5-experiment.json` — 实验状态（completed/failed/timeout）
+- `output/monitoring/step5-metrics.jsonl` — 采集的 CloudWatch 指标
+- `output/monitoring/step5-log-summary.json` — 分类应用日志摘要
+- `output/experiment-runner.log` — 详细执行日志
 
-1. 生成并执行后台监控脚本：`nohup ./monitor.sh &`，每 30s 采集 CloudWatch 指标 → `output/step5-metrics.jsonl`
-2. **启动应用日志采集**（与 monitor.sh 并行）：
-   ```bash
-   nohup bash scripts/log-collector.sh \
-     --namespace {TARGET_NS} \
-     --services "{svc1},{svc2}" \
-     --duration {实验时长 + 60} \
-     --output-dir output/ \
-     --mode live &
-   ```
-   通过 `kubectl logs -f` 采集 Pod 日志，自动分类为 5 种错误类型：
-   - **timeout**：请求超时、deadline exceeded
-   - **connection**：连接拒绝/重置、ECONNREFUSED
-   - **5xx**：HTTP 500-599 响应
-   - **oom**：OOMKilled、内存不足
-   - **other**：未分类错误
-   
-   输出：`output/step5-logs.jsonl`（逐行分类）+ `output/step5-log-summary.json`（汇总）
-3. Agent 每 15s 轮询 FIS 状态：`aws fis get-experiment`（轻量）
-4. 检测到 stop condition 触发 → 自动停止实验
-5. FIS 结束（completed/failed/stopped）→ 停止轮询，读 `step5-metrics.jsonl` 和 `step5-log-summary.json` 分析
+**退出码**：0=完成，1=失败，2=超时
 
-日志采集脚本：[scripts/log-collector.sh](scripts/log-collector.sh)
-监控脚本模板：[scripts/monitor.sh](scripts/monitor.sh)
+**超时处理**：runner 以退出码 2（超时）退出时，实验已被自动停止。在 Step 6 中报告为异常终止。
+
+#### 阶段 2：日志分类
+
+应用日志由 `log-collector.sh` 自动分类为 5 种错误类型：
+- **timeout**：请求超时、deadline exceeded
+- **connection**：连接拒绝/重置、ECONNREFUSED
+- **5xx**：HTTP 500-599 响应
+- **oom**：OOMKilled、内存不足
+- **other**：未分类错误
+
+脚本：[scripts/experiment-runner.sh](scripts/experiment-runner.sh) | [scripts/log-collector.sh](scripts/log-collector.sh) | [scripts/monitor.sh](scripts/monitor.sh)
 
 #### 阶段 3：恢复 (T+duration → T+recovery)
 等待自动恢复 → 记录恢复时间 → 与目标 RTO 对比 → 超时未恢复告警。
@@ -385,13 +428,83 @@ kubectl apply -f chaos-experiment.yaml
 | Dry-run | 只走流程不注入 |
 | Game Day | 跨团队演练，参见 [references/gameday_zh.md](references/gameday_zh.md) |
 
-**输出**：`output/step5-experiment.json` + `output/step5-metrics.jsonl` + `output/step5-logs.jsonl` + `output/step5-log-summary.json`
+**输出**：`output/checkpoints/step5-experiment.json` + `output/monitoring/step5-metrics.jsonl` + `output/monitoring/step5-logs.jsonl` + `output/monitoring/step5-log-summary.json`
 
 ### 步骤 6：学习与报告
 
 **消费**：实验数据 + 韧性评分 (2.7) + 应用日志
 
-1. 分析结果：PASSED ✅ / FAILED ❌ / ABORTED ⚠️
+#### 6.0 结果验证（强制 — 必须首先执行）
+
+> ⚠️ **关键**：写报告前，必须从 AWS 查询 FIS 实验的实际状态。不要仅从指标推断 pass/fail。
+
+对**每个**执行过的实验，查询实际状态：
+```bash
+aws fis get-experiment --id {EXPERIMENT_ID} --region {REGION} \
+  --query 'experiment.state.{status:status,reason:reason}' --output json
+```
+
+**结果映射规则（不可协商）**：
+| FIS `state.status` | 报告结果 | 说明 |
+|---------------------|---------|------|
+| `completed` | 检查假设 → PASSED ✅ 或 FAILED ❌ | `completed` 仅表示 FIS 执行完毕，不代表系统通过测试。仍须验证假设阈值。|
+| `failed` | **FAILED ❌** | FIS 本身失败（模板错误、权限问题等）— 一定是 FAILED |
+| `stopped` | **ABORTED ⚠️** | 手动停止或 stop-condition 触发 |
+| `cancelled` | **ABORTED ⚠️** | 完成前取消 |
+
+**对 `completed` 实验**，还需检查：
+1. 稳态假设是否被违反？（成功率、延迟、错误率 vs. 阈值）
+2. 恢复时间是否超过目标 RTO？
+3. 假设被违反或 RTO 超标 → **FAILED ❌**（即使 FIS 状态为 `completed`）
+
+**交叉验证**：对比 `output/checkpoints/step5-experiment.json` 状态与 `aws fis get-experiment` 结果。如有不一致，以 AWS API 结果为准。
+
+#### Chaos Mesh 结果验证
+
+对**每个**执行过的 Chaos Mesh 实验，从集群查询实际状态：
+```bash
+# 获取实验状态（将 KIND 替换为：podchaos, networkchaos, httpchaos, stresschaos, iochaos 等）
+kubectl get {KIND} {EXPERIMENT_NAME} -n {NAMESPACE} -o jsonpath='{.status.conditions}' | jq .
+```
+
+**关键状态条件检查**：
+| 条件 | 值 | 含义 |
+|------|-----|------|
+| `AllInjected` | `True` | 故障已成功注入所有目标 |
+| `AllInjected` | `False` | 故障注入失败（部分或全部）|
+| `AllRecovered` | `True` | 实验后所有目标已恢复 |
+| `AllRecovered` | `False` | 恢复不完全 |
+| `Paused` | `True` | 实验已暂停 |
+
+**Chaos Mesh 结果映射规则**：
+| 场景 | 报告结果 | 说明 |
+|------|---------|------|
+| `AllInjected=True` + `AllRecovered=True` | 检查假设 → PASSED ✅ 或 FAILED ❌ | 实验正确执行；根据系统行为判定 |
+| `AllInjected=False` | **FAILED ❌** | 故障注入本身失败（selector 不匹配、RBAC 等）|
+| `AllRecovered=False`（超时后）| **FAILED ❌** | 系统未恢复 — 关键发现 |
+| 实验 CR 不存在 | **ABORTED ⚠️** | 实验被删除或从未创建 |
+
+**额外检查**（实验完成后执行）：
+```bash
+# 验证没有 chaos 资源泄漏（清理后应为空）
+kubectl get podchaos,networkchaos,httpchaos,stresschaos,iochaos -n {NAMESPACE} 2>/dev/null
+
+# 检查注入失败的事件
+kubectl describe {KIND} {EXPERIMENT_NAME} -n {NAMESPACE} | grep -A5 "Events:"
+```
+
+**对 `AllInjected=True` + `AllRecovered=True` 实验**，还需检查：
+1. 注入期间稳态假设是否被违反？（同 FIS）
+2. 恢复时间是否超过目标 RTO？
+3. 假设被违反或 RTO 超标 → **FAILED ❌**
+
+#### 结果汇总
+```
+Total: {N} = Passed: {P} + Failed: {F} + Aborted: {A}
+```
+每个 experiment ID 必须出现在详细结果表中，附带实际状态。
+
+#### 6.1 分析
 2. 稳态假设 vs 实际表现对比表
 3. **SLO/RTO 合规表**（自动生成）：
    从 step1-scope.json 提取目标 RTO/RPO（字段：`business_functions[].rto_seconds` / `rpo_seconds`）或从假设陈述中提取。与实际观测值比较：
