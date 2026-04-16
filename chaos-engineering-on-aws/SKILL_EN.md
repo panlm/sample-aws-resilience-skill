@@ -55,6 +55,8 @@ Falls back to AWS CLI (`aws fis`, `aws cloudwatch`, `kubectl`) when MCP unavaila
 - K8s Pod/container → Chaos Mesh (preferred over FIS pod actions) → [references/chaosmesh-crds.md](references/chaosmesh-crds.md)
 - Composite multi-action → FIS `startAfter` + parameterized templates → [references/templates/](references/templates/)
 - Mixed-backend (FIS + CM) → orchestration guide in [references/workflow-guide.md § 3.7](references/workflow-guide.md#37-mixed-backend-experiments-fis--chaos-mesh)
+- Ready-to-deploy FIS templates (DB connection exhaustion, Redis failure, SQS impairment, CloudFront impairment, Aurora global failover) → [references/fis-templates/](references/fis-templates/) + full 19-scenario index → [references/fis-template-library-index.md](references/fis-template-library-index.md)
+- SSM Automation orchestrated experiments (dynamic resource injection, SG manipulation, resource policy denial) → [references/workflow-guide.md § SSM Automation](references/workflow-guide.md#advanced-ssm-automation-orchestrated-experiments)
 
 **Step 3 — Required output**: Must generate `output/monitoring/metric-queries.json` for Step 5 monitoring.
 

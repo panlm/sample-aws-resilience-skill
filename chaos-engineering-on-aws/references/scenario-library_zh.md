@@ -533,3 +533,60 @@ aws fis start-experiment --experiment-template-id <TEMPLATE_ID>
    ```
 
 > **参考**：[AWS FIS Scenario Library 文档](https://docs.aws.amazon.com/fis/latest/userguide/scenario-library.html)
+
+---
+
+## 外部模板库
+
+> 以上场景来自 **FIS 控制台场景库**（基于控制台的多操作编排场景）。
+> 本节介绍 [aws-samples/fis-template-library](https://github.com/aws-samples/fis-template-library) —
+> 包含 **19 个可直接部署的 FIS 实验模板**，附带 IAM 策略和 SSM 自动化文档。
+> 与控制台场景库不同，这些模板可通过 CLI/API 直接部署，无需控制台操作。
+
+完整 19 场景索引及详细元数据，请参见 [`fis-template-library-index_zh.md`](fis-template-library-index_zh.md)。
+
+5 个高价值模板已内嵌到 `fis-templates/` 目录：
+
+### 数据库连接池耗尽 ⭐
+- **注入方式**：SSM 自动化 — 动态创建 EC2 负载生成器，耗尽数据库连接，自动清理
+- **支持引擎**：Aurora PostgreSQL、Aurora MySQL、RDS PostgreSQL、RDS MySQL、RDS SQL Server
+- **验证点**：连接池监控、熔断器激活、优雅降级
+- **模板**：`fis-templates/database-connection-exhaustion/`
+- **模式**：动态资源注入
+
+### ElastiCache Redis 连接中断 ⭐
+- **注入方式**：SSM 自动化 — 删除安全组规则阻断应用→Redis 流量
+- **验证点**：熔断器（30 秒）、重试风暴抑制、降级运行、恢复（60 秒）
+- **模板**：`fis-templates/redis-connection-failure/`
+- **模式**：安全组操作
+
+### SQS 队列不可用 ⭐
+- **注入方式**：SSM 自动化 — 向 SQS 队列策略添加全拒绝，4 轮递增（2→5→7→15 分钟）
+- **验证点**：5 分钟内告警、组件隔离、死信队列捕获、生产者背压
+- **模板**：`fis-templates/sqs-queue-impairment/`
+- **模式**：资源策略拒绝（渐进式）
+
+### CloudFront 分发不可用 ⭐
+- **注入方式**：SSM 自动化 — 向 S3 源站存储桶应用拒绝策略
+- **前提**：CloudFront 必须配置源站组
+- **验证点**：源站组故障转移（30 秒）、告警（2-3 分钟）、恢复后切回主源站
+- **模板**：`fis-templates/cloudfront-impairment/`
+- **模式**：资源策略拒绝
+
+### Aurora 全局数据库跨区域故障转移 ⭐
+- **注入方式**：SSM 自动化 — Aurora Global DB switchover 或紧急 failover API
+- **模式**：计划切换（无数据丢失）或紧急故障转移（允许数据丢失）
+- **验证点**：跨区域提升、RTO/RPO 目标、端点更新
+- **模板**：`fis-templates/aurora-global-failover/`
+
+### 更多场景（通过索引查看）
+
+完整索引还包含 14 个场景，覆盖：
+- EC2 实例终止、Spot 中断、Windows IIS 停止
+- Aurora 集群故障转移、Aurora/MySQL 负载测试+故障转移
+- ElastiCache Redis 主节点故障转移和重启
+- DynamoDB 区域不可用（资源策略+网络黑洞）
+- Direct Connect 虚拟接口断连
+- SAP 工作负载 HA 验证（ASCS、数据库、EBS）
+
+详见 [`fis-template-library-index_zh.md`](fis-template-library-index_zh.md)。

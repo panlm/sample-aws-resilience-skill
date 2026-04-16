@@ -30,6 +30,14 @@ EC2 stop and EBS pause start immediately (parallel). RDS failover starts 30 seco
 - Maintain request success rate ≥ 95% during the event
 - Fully recover within 120 seconds after fault injection stops
 
+### What does this enable you to verify?
+
+- Multi-AZ deployment truly survives AZ-level degradation (not just single-instance failure)
+- Coordinated multi-service fault behavior (EC2 + EBS + RDS simultaneously)
+- Cross-AZ capacity planning (remaining AZ handles full load)
+- `startAfter` sequencing correctness in FIS multi-action templates
+- Blast radius containment when multiple services fail in the same AZ
+
 ## Prerequisites
 
 - [ ] Multi-AZ deployment with instances in at least 2 AZs

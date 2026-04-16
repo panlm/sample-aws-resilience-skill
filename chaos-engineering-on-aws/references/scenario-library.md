@@ -533,3 +533,60 @@ aws fis start-experiment --experiment-template-id <TEMPLATE_ID>
    ```
 
 > **Reference**: [AWS FIS Scenario Library documentation](https://docs.aws.amazon.com/fis/latest/userguide/scenario-library.html)
+
+---
+
+## External Template Library
+
+> The scenarios above are from the **FIS Console Scenario Library** (console-based, multi-action orchestrated scenarios).
+> The following section covers [aws-samples/fis-template-library](https://github.com/aws-samples/fis-template-library) —
+> a collection of **19 ready-to-deploy FIS experiment templates** with IAM policies and SSM Automation documents.
+> Unlike Console Scenario Library scenarios, these templates can be directly deployed via CLI/API without any Console interaction.
+
+For the full 19-scenario index with detailed metadata, see [`fis-template-library-index.md`](fis-template-library-index.md).
+
+Five high-value templates are embedded in `fis-templates/` for direct use:
+
+### Database Connection Limit Exhaustion ⭐
+- **Injection**: SSM Automation — dynamically creates EC2 load generator, exhausts DB connections, auto-cleans up
+- **Engines**: Aurora PostgreSQL, Aurora MySQL, RDS PostgreSQL, RDS MySQL, RDS SQL Server
+- **Verifies**: Connection pool monitoring, circuit breaker activation, graceful degradation
+- **Template**: `fis-templates/database-connection-exhaustion/`
+- **Pattern**: Dynamic Resource Injection
+
+### ElastiCache Redis Connection Failure ⭐
+- **Injection**: SSM Automation — removes Security Group rules to block app→Redis traffic
+- **Verifies**: Circuit breaker (30s), retry storm prevention, degraded mode, recovery (60s)
+- **Template**: `fis-templates/redis-connection-failure/`
+- **Pattern**: Security Group Manipulation
+
+### SQS Queue Impairment ⭐
+- **Injection**: SSM Automation — applies deny-all SQS queue policy in 4 escalating rounds (2→5→7→15 min)
+- **Verifies**: Alarm within 5min, component isolation, DLQ capture, producer backpressure
+- **Template**: `fis-templates/sqs-queue-impairment/`
+- **Pattern**: Resource Policy Denial (Progressive)
+
+### CloudFront Distribution Impairment ⭐
+- **Injection**: SSM Automation — applies deny policy to S3 origin buckets
+- **Prerequisite**: CloudFront origin groups must be configured
+- **Verifies**: Origin group failover (30s), alarm (2-3min), primary resume after restore
+- **Template**: `fis-templates/cloudfront-impairment/`
+- **Pattern**: Resource Policy Denial
+
+### Aurora Global Database Regional Failover ⭐
+- **Injection**: SSM Automation — Aurora Global DB switchover or emergency failover API
+- **Modes**: Switchover (no data loss) or Failover (allows data loss)
+- **Verifies**: Cross-region promotion, RTO/RPO targets, endpoint updates
+- **Template**: `fis-templates/aurora-global-failover/`
+
+### Additional Scenarios (via index)
+
+The full index includes 14 more scenarios covering:
+- EC2 instance termination, Spot interruption, Windows IIS stop
+- Aurora cluster failover, Aurora/MySQL load test + failover
+- ElastiCache Redis primary node failover and reboot
+- DynamoDB region impairment (resource policy + network blackhole)
+- Direct Connect virtual interface disconnect
+- SAP workload HA validation (ASCS, database, EBS)
+
+See [`fis-template-library-index.md`](fis-template-library-index.md) for complete details.

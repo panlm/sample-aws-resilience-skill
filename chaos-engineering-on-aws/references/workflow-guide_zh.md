@@ -363,3 +363,78 @@ kubectl patch networkchaos my-exp -n ns --type merge -p '{"spec":{"duration":"2m
 报告模板详情：[references/report-templates_zh.md](report-templates_zh.md)
 
 **输出**：`output/step6-report.md` + `output/step6-report.html`
+
+---
+
+## 进阶：SSM 自动化编排实验
+
+步骤 1-5 中的示例使用单步 FIS 操作（终止实例、故障转移集群等）。
+对于更复杂的故障注入场景，FIS 可以触发 SSM 自动化文档来编排多步实验。
+以下三种关键模式来自 [aws-samples/fis-template-library](https://github.com/aws-samples/fis-template-library)：
+
+### 模式 1：动态资源注入
+
+创建临时基础设施注入故障，然后自动清理。
+
+**流程：**
+1. FIS 触发 SSM 自动化文档
+2. SSM 创建临时资源（如 EC2 实例作为负载生成器）
+3. SSM 安装工具并在临时资源上执行故障注入
+4. SSM 等待指定持续时间
+5. SSM 清理（释放资源，终止临时实例）
+
+**示例**：`database-connection-limit-exhaustion` — 动态创建 EC2，安装数据库客户端，
+打开连接耗尽连接池，保持，然后释放并终止实例。
+
+**适用场景**：故障需要目标环境中不存在的负载生成器或中间节点（如连接压力、流量注入）。
+
+参见：`references/fis-templates/database-connection-exhaustion/`
+
+### 模式 2：安全组操作
+
+通过修改安全组规则阻断特定服务间流量。
+
+**流程：**
+1. SSM 发现目标资源及其安全组
+2. SSM 记录原始安全组规则（用于回滚）
+3. SSM 删除/修改入站规则以阻断特定流量
+4. 保持中断指定持续时间
+5. SSM 恢复原始安全组规则
+
+**示例**：`elasticache-redis-connection-failure` — 删除安全组入站规则阻断
+应用→Redis 流量，在服务级别模拟网络隔离。
+
+**相比 FIS 原生网络操作的优势**：FIS `aws:network:disrupt-connectivity` 在子网级别操作（通过 NACL）。
+安全组操作针对特定服务连接，允许更精确的故障注入（如阻断 Redis 但不影响同一子网的 DynamoDB）。
+
+参见：`references/fis-templates/redis-connection-failure/`
+
+### 模式 3：资源策略拒绝
+
+通过在 IAM/资源策略层应用拒绝策略来模拟服务不可用。
+
+**流程：**
+1. SSM 通过标签发现目标资源
+2. SSM 向资源的访问策略添加全拒绝声明
+3. 该资源上的所有 API 操作返回 `AccessDenied`
+4. 持续时间结束后，SSM 移除拒绝声明
+5. 服务恢复正常运行
+
+**示例**：`sqs-queue-impairment` — 向 SQS 队列策略添加拒绝策略。
+`cloudfront-impairment` — 向 S3 源站存储桶策略应用拒绝策略。
+
+**优势**：适用于任何支持资源策略的 AWS 服务。可在不进行网络层中断的情况下模拟服务不可用。
+支持渐进式故障（递增拒绝轮次+恢复窗口）。
+
+参见：`references/fis-templates/sqs-queue-impairment/`、`references/fis-templates/cloudfront-impairment/`
+
+### 模式选择指南
+
+| 模式 | 最适合 | 复杂度 | 回滚安全性 |
+|------|--------|--------|-----------|
+| 动态资源注入 | 负载/连接压力测试 | 高 | 高（临时资源自动清理） |
+| 安全组操作 | 服务级网络隔离 | 中 | 中（必须恢复精确的原始规则） |
+| 资源策略拒绝 | 服务不可用模拟 | 低 | 高（移除拒绝声明即可） |
+
+> **注意**：三种模式都需要 FIS 和 SSM 两个 IAM 角色。`references/fis-templates/` 中的内嵌模板
+> 包含所需的 IAM 策略和信任关系文件。

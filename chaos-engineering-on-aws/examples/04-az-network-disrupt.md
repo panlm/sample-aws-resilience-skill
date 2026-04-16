@@ -14,6 +14,14 @@ After isolating the network of 1 AZ:
 - Recovery time <= 120s
 - Database Multi-AZ failover succeeds (if Primary is in the isolated AZ)
 
+### What does this enable you to verify?
+
+- Cross-AZ traffic routing and ALB health check AZ-awareness
+- EBS volume availability when AZ network is disrupted
+- RDS/Aurora Multi-AZ failover trigger conditions and timing
+- Application-level retry and timeout behavior during AZ isolation
+- Operational runbook effectiveness for AZ-level incidents
+
 ## Stop Conditions
 
 ```json

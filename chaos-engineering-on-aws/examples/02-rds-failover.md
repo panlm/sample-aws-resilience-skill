@@ -14,6 +14,14 @@ After triggering Aurora cluster failover:
 - Data integrity 100% after failover
 - Application connection pool auto-reconnects without manual intervention
 
+### What does this enable you to verify?
+
+- Database connection pool reconnection logic and DNS TTL settings
+- Application error handling during brief write unavailability
+- Aurora cluster endpoint DNS propagation speed
+- Read replica promotion and writer/reader role swap correctness
+- CloudWatch alarm for `AuroraReplicaLag` and failover events
+
 ## Stop Conditions
 
 ```json

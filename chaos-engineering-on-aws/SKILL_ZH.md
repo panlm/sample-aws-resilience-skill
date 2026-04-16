@@ -55,6 +55,8 @@
 - K8s Pod/容器 → Chaos Mesh（优先于 FIS pod actions）→ [references/chaosmesh-crds_zh.md](references/chaosmesh-crds_zh.md)
 - 组合多 Action → FIS `startAfter` + 参数化模板 → [references/templates/](references/templates/)
 - 混合后端（FIS + CM）→ [references/workflow-guide_zh.md § 3.7](references/workflow-guide_zh.md#37-混合后端实验fis--chaos-mesh)
+- 可直接部署的 FIS 模板（数据库连接耗尽、Redis 故障、SQS 不可用、CloudFront 不可用、Aurora 全局故障转移）→ [references/fis-templates/](references/fis-templates/) + 全量 19 场景索引 → [references/fis-template-library-index_zh.md](references/fis-template-library-index_zh.md)
+- SSM 自动化编排实验（动态资源注入、安全组操作、资源策略拒绝）→ [references/workflow-guide_zh.md § SSM 自动化](references/workflow-guide_zh.md#进阶ssm-自动化编排实验)
 
 **步骤 3 — 必需输出**：必须生成 `output/monitoring/metric-queries.json` 供步骤 5 监控使用。
 

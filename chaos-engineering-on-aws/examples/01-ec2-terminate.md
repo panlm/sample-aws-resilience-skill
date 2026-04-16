@@ -14,6 +14,14 @@ After terminating 1 EC2 instance in the ASG:
 - ASG replenishes a new instance and passes health check within 300s
 - Zero data loss
 
+### What does this enable you to verify?
+
+- Auto Scaling Group replacement speed and health check configuration
+- ALB target deregistration delay and health check sensitivity
+- Application statelessness (no session affinity issues when instance is lost)
+- CloudWatch alarm fires for `UnHealthyHostCount` within 1 minute
+- No customer-visible errors during instance replacement
+
 ## Stop Conditions
 
 ```json

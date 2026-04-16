@@ -23,6 +23,14 @@ After killing 1 Pod of the target service:
 - Pod rebuilt and enters Ready state within 60s
 - Zero request loss (other Pods take over traffic)
 
+### What does this enable you to verify?
+
+- Kubernetes liveness/readiness probe configuration effectiveness
+- HPA scaling response when pod count drops below threshold
+- Service mesh / load balancing redistribution speed
+- PodDisruptionBudget enforcement during voluntary disruptions
+- Application graceful shutdown handling (SIGTERM → preStop hook)
+
 ## Chaos Mesh Manifest
 
 ```yaml

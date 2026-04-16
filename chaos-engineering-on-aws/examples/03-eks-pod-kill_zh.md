@@ -23,6 +23,14 @@
 - Pod 在 60s 内重建并进入 Ready 状态
 - 无请求丢失（其他 Pod 接管流量）
 
+### 验证要点
+
+- Kubernetes liveness/readiness 探针配置有效性
+- HPA 在 Pod 数量低于阈值时的扩容响应
+- Service mesh / 负载均衡重新分配速度
+- PodDisruptionBudget 在自愿中断时的执行情况
+- 应用优雅关闭处理（SIGTERM → preStop hook）
+
 ## Chaos Mesh Manifest
 
 ```yaml

@@ -596,3 +596,81 @@ Generate the report in sections, writing each to file before proceeding:
 > "✅ Section N ({section_name}) written ({byte_count} bytes) — {N}/7 complete"
 
 **Output**: `output/step6-report.md` + `output/step6-report.html`
+
+---
+
+## Advanced: SSM Automation Orchestrated Experiments
+
+The examples in Steps 1-5 use single FIS actions (terminate instance, failover cluster, etc.).
+For more complex fault injection scenarios, FIS can trigger SSM Automation documents that orchestrate
+multi-step experiments. Three key patterns from [aws-samples/fis-template-library](https://github.com/aws-samples/fis-template-library):
+
+### Pattern 1: Dynamic Resource Injection
+
+Create ephemeral infrastructure to inject faults, then automatically clean up.
+
+**Flow:**
+1. FIS triggers SSM Automation document
+2. SSM creates ephemeral resources (e.g., EC2 instance as load generator)
+3. SSM installs tools and executes fault injection on the ephemeral resource
+4. SSM waits for specified duration
+5. SSM cleans up (releases resources, terminates ephemeral instances)
+
+**Example**: `database-connection-limit-exhaustion` — dynamically creates EC2, installs DB client,
+opens connections to exhaust the connection pool, holds them, then releases and terminates the instance.
+
+**When to use**: When the fault requires a load generator or intermediary that doesn't exist in
+the target environment (e.g., generating connection pressure, traffic flooding).
+
+See: `references/fis-templates/database-connection-exhaustion/`
+
+### Pattern 2: Security Group Manipulation
+
+Block specific service-to-service traffic by modifying Security Group rules.
+
+**Flow:**
+1. SSM discovers target resources and their Security Groups
+2. SSM records original SG rules (for rollback)
+3. SSM removes/modifies inbound rules to block specific traffic
+4. Disruption maintained for specified duration
+5. SSM restores original SG rules
+
+**Example**: `elasticache-redis-connection-failure` — removes SG inbound rules to block
+application → Redis traffic, simulating network partition at the service level.
+
+**Advantage over FIS native network actions**: FIS `aws:network:disrupt-connectivity` operates
+at the subnet level (via NACL). SG manipulation targets specific service connections, allowing
+more surgical fault injection (e.g., block Redis but not DynamoDB from the same subnet).
+
+See: `references/fis-templates/redis-connection-failure/`
+
+### Pattern 3: Resource Policy Denial
+
+Simulate service unavailability by applying deny policies at the IAM/resource policy level.
+
+**Flow:**
+1. SSM discovers target resources by tag
+2. SSM adds deny-all statement to the resource's access policy
+3. All API operations on the resource return `AccessDenied`
+4. After duration, SSM removes the deny statement
+5. Service resumes normal operation
+
+**Example**: `sqs-queue-impairment` — attaches deny policy to SQS queue policy.
+`cloudfront-impairment` — applies deny policy to S3 origin bucket policy.
+
+**Advantage**: Works for any AWS service that supports resource-based policies. Can simulate
+service unavailability without network-level disruption. Supports progressive impairment
+(escalating denial rounds with recovery windows).
+
+See: `references/fis-templates/sqs-queue-impairment/`, `references/fis-templates/cloudfront-impairment/`
+
+### Choosing the Right Pattern
+
+| Pattern | Best For | Complexity | Rollback Safety |
+|---------|----------|-----------|----------------|
+| Dynamic Resource Injection | Load/connection pressure testing | High | High (ephemeral resources auto-cleaned) |
+| Security Group Manipulation | Service-level network isolation | Medium | Medium (must restore exact original rules) |
+| Resource Policy Denial | Service unavailability simulation | Low | High (remove deny statement) |
+
+> **Note**: All three patterns require both FIS and SSM IAM roles. The embedded templates
+> in `references/fis-templates/` include the required IAM policies and trust relationships.
